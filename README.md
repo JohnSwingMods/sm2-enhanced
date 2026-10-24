@@ -4,7 +4,7 @@ A free, fan-made launcher and mod for **Spider-Man 2 (2004, GameCube)**, played 
 
 ## ⬇️ Download
 
-**[Get the latest version](https://github.com/JohnSwingMods/sm2-enhanced/releases/latest)** → download `SM2 Enhanced.exe` and open it.
+**[Get the latest version](https://github.com/JohnSwingMods/sm2-enhanced/releases/latest)** → download the `.exe` under *Assets* and open it.
 
 Windows may show a blue "Windows protected your PC" box: click **More info** and then **Run anyway** (the app isn't signed yet).
 
