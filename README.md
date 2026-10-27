@@ -57,7 +57,7 @@ Code comments are mostly in Italian. The 100% save shipped in the release exe is
 ## Thanks
 
 RE Mods · JayeSGee · ThunderTurtle · KomandoUgur · LifeGeeksYT, everyone who made the codes and the textures, and the
-Dolphin Emulator team. The texture packs and suits are made by their authors and downloaded from their ModDB pages
+Dolphin Emulator team. Developed with the assistance of Claude (Anthropic). The texture packs and suits are made by their authors and downloaded from their ModDB pages
 (credits in the app: *Settings > Credits and licenses*). `tools/texconv.exe` is Microsoft DirectXTex (MIT license, see
 `tools/texconv_LICENSE.txt`).
 
