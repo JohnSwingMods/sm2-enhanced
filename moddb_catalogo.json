@@ -1,0 +1,344 @@
+{
+ "_nota": "File su ModDB (mod Spider-Man 2: RE) letti dalle pagine il 2026-10-01: nome, byte e MD5 servono all'app per riconoscere i download. ricetta = [cartella nell'archivio, cartella nella libreria] ('' = tutto l'archivio).",
+ "file": [
+  {
+   "pagina": "https://www.moddb.com/mods/spider-man-2-re-alpha/downloads/spider-man-2-project-re-beta-2-pre-full-release",
+   "file": "Spider-Man_2_Project_RE_Beta_Build_2_24.02.2021.rar",
+   "byte": 654451678,
+   "md5": "23ffd3394e8dedc0dc53d585de653d06",
+   "autore": "RE_Mods",
+   "data": "2021-02-24",
+   "start": "/downloads/start/209453",
+   "id": "re_beta2",
+   "nome": "Spider-Man 2: RE (Beta 2)",
+   "ricetta": [
+    [
+     "Main Textures",
+     "Textures/RE"
+    ],
+    [
+     "Suit Mods",
+     "Skins/Suit Mods"
+    ],
+    [
+     "HUDS",
+     "Skins/HUDs"
+    ],
+    [
+     "Layouts",
+     "Layout Controller"
+    ],
+    [
+     "Webs",
+     "Skins/Webs"
+    ]
+   ],
+   "contenuto": [
+    "texture",
+    "skin",
+    "hud",
+    "tasti",
+    "ragnatele"
+   ],
+   "obbligatorio": true,
+   "img": "https://media.moddb.com/cache/images/downloads/1/210/209453/thumb_620x2000/unknown-207.png",
+   "desc": {
+    "it": "Il cuore di tutto: rifà in HD quasi tutto il gioco (città, personaggi, interfaccia, tasti) e porta con sé decine di costumi. Serve a tutto il resto.",
+    "en": "The heart of it all: it remakes almost the whole game in HD (city, characters, interface, buttons) and brings dozens of suits. Everything else builds on it.",
+    "de": "Das Herzstück: Es macht fast das ganze Spiel in HD neu (Stadt, Figuren, Oberfläche, Tasten) und bringt Dutzende Anzüge mit. Alles andere baut darauf auf.",
+    "fr": "Le cœur de tout : il refait en HD presque tout le jeu (ville, personnages, interface, touches) et apporte des dizaines de costumes. Tout le reste s'appuie dessus.",
+    "es": "El corazón de todo: rehace en HD casi todo el juego (ciudad, personajes, interfaz, botones) y trae decenas de trajes. Todo lo demás se apoya en él."
+   }
+  },
+  {
+   "pagina": "https://www.moddb.com/mods/spider-man-2-re-alpha/addons/unofficial-update-pack-v2",
+   "file": "Update_Pack_V2.3.zip",
+   "byte": 175191024,
+   "md5": "c1dc939dfb5b789d7aaa536bb59924e6",
+   "autore": "ThunderTurtle",
+   "data": "2022-10-20",
+   "start": "/addons/start/239799",
+   "id": "update_pack",
+   "nome": "Unofficial Update Pack V2.3",
+   "ricetta": [
+    [
+     "Update Pack/Updated Textures V2",
+     "Skins/Custom Textures/Unofficial Update Pack V2.3/Updated Textures V2"
+    ],
+    [
+     "Update Pack/Enhanced Original Title Screen",
+     "Skins/Custom Textures/Unofficial Update Pack V2.3/Enhanced Original Title Screen"
+    ],
+    [
+     "Update Pack/Movie Accuracy Suit",
+     "Skins/Suit Mods/1-Others/Movie Accuracy Suit"
+    ]
+   ],
+   "contenuto": [
+    "texture",
+    "skin"
+   ],
+   "consigliato": true,
+   "img": "https://media.moddb.com/cache/images/downloads/1/240/239799/thumb_620x2000/tex1_512x256_da4ce244095568b1_14.png",
+   "desc": {
+    "it": "Completa RE con le texture che mancavano, migliorate con l'IA, e aggiunge un costume dai colori più vicini al film. Di base l'app prende solo le texture che RE non ha.",
+    "en": "Completes RE with the textures it was missing, AI-enhanced, and adds a suit with colours closer to the movie. By default the app only takes the textures RE doesn't have.",
+    "de": "Ergänzt RE um die fehlenden Texturen, per KI verbessert, und fügt einen Anzug in filmnäheren Farben hinzu. Standardmäßig nimmt die App nur die Texturen, die RE nicht hat.",
+    "fr": "Complète RE avec les textures qui manquaient, améliorées par IA, et ajoute un costume aux couleurs plus proches du film. Par défaut l'appli ne prend que les textures absentes de RE.",
+    "es": "Completa RE con las texturas que faltaban, mejoradas con IA, y añade un traje con colores más cercanos a la película. Por defecto la app solo toma las texturas que RE no tiene."
+   }
+  },
+  {
+   "pagina": "https://www.moddb.com/mods/spider-man-2-re-alpha/addons/fresh-start-suit",
+   "file": "Fresh_Start_Suit_v1.0.1.zip",
+   "byte": 561952601,
+   "md5": "eb32c1c648dfdfe6950fc8e692cfce2a",
+   "autore": "JayeSGee",
+   "data": "2026-08-01",
+   "start": "/addons/start/313520",
+   "id": "fresh_start",
+   "nome": "Fresh Start Suit",
+   "ricetta": [
+    [
+     "",
+     "Skins/Suit Mods/1-Others/Fresh_Start_Suit_v1.0.1"
+    ]
+   ],
+   "contenuto": [
+    "skin",
+    "texture"
+   ],
+   "img": "https://media.moddb.com/cache/images/downloads/1/314/313520/thumb_620x2000/1.png",
+   "desc": {
+    "it": "Il costume «Fresh Start» dei fumetti con tantissime varianti di colore da combinare, più cartelloni della città ispirati ai film.",
+    "en": "The comics' “Fresh Start” suit with loads of colour variants to mix, plus movie-inspired city billboards.",
+    "de": "Der „Fresh Start“-Anzug aus den Comics mit unzähligen Farbvarianten zum Kombinieren, dazu filminspirierte Werbetafeln in der Stadt.",
+    "fr": "Le costume « Fresh Start » des comics avec plein de variantes de couleur à combiner, plus des panneaux de la ville inspirés des films.",
+    "es": "El traje «Fresh Start» de los cómics con muchísimas variantes de color para combinar, más vallas de la ciudad inspiradas en las películas."
+   }
+  },
+  {
+   "pagina": "https://www.moddb.com/mods/spider-man-2-re-alpha/addons/fantastic-spider-man-suit",
+   "file": "Fantastic_Spider-Man_Suit_v1.0.2.zip",
+   "byte": 23400733,
+   "md5": "0c669935f1b51f9595a1bf2c324e908d",
+   "autore": "JayeSGee",
+   "data": "2026-07-31",
+   "start": "/addons/start/293869",
+   "id": "fantastic",
+   "nome": "Fantastic Spider-Man Suit",
+   "ricetta": [
+    [
+     "",
+     "Skins/Suit Mods/1-Others/Fantastic_Spider-Man_Suit_v1.0.2"
+    ]
+   ],
+   "contenuto": [
+    "skin",
+    "texture"
+   ],
+   "img": "https://media.moddb.com/cache/images/downloads/1/294/293869/thumb_620x2000/mod_temp.png",
+   "desc": {
+    "it": "Spider-Man entra nei Fantastici Quattro: la loro tuta blu, con i cartelloni della città a tema.",
+    "en": "Spider-Man joins the Fantastic Four: their blue suit, with themed city billboards.",
+    "de": "Spider-Man tritt den Fantastischen Vier bei: ihr blauer Anzug, mit passenden Werbetafeln in der Stadt.",
+    "fr": "Spider-Man rejoint les Quatre Fantastiques : leur combinaison bleue, avec des panneaux de la ville assortis.",
+    "es": "Spider-Man se une a los Cuatro Fantásticos: su traje azul, con vallas de la ciudad a juego."
+   }
+  },
+  {
+   "pagina": "https://www.moddb.com/mods/spider-man-2-re-alpha/addons/zombie-hunter-suit",
+   "file": "Zombie_Hunter_Suit.zip",
+   "byte": 13282088,
+   "md5": "716c11e8df86c2b88348ba4d0e71329f",
+   "autore": "JayeSGee",
+   "data": "2025-10-31",
+   "start": "/addons/start/298967",
+   "id": "zombie_hunter",
+   "nome": "Zombie Hunter Suit",
+   "ricetta": [
+    [
+     "Zombie Hunter Suit",
+     "Skins/Suit Mods/1-Others/Zombie Hunter Suit"
+    ]
+   ],
+   "contenuto": [
+    "skin"
+   ],
+   "img": "https://media.moddb.com/cache/images/downloads/1/299/298967/thumb_620x2000/1.png",
+   "desc": {
+    "it": "Lo Spider-Man cacciatore di zombie di Marvel Zombies, con il costume rattoppato.",
+    "en": "Marvel Zombies' zombie-hunting Spider-Man, patched-up suit included.",
+    "de": "Der Zombiejäger-Spider-Man aus Marvel Zombies, mit geflicktem Anzug.",
+    "fr": "Le Spider-Man chasseur de zombies de Marvel Zombies, costume rapiécé compris.",
+    "es": "El Spider-Man cazador de zombis de Marvel Zombies, con el traje remendado."
+   }
+  },
+  {
+   "pagina": "https://www.moddb.com/mods/spider-man-2-re-alpha/addons/spider-armor-mk-i",
+   "file": "Spider-Armor_MK_I.rar",
+   "byte": 1260584,
+   "md5": "b288293f071763ef0c83e45292a6252d",
+   "autore": "JayeSGee",
+   "data": "2025-01-30",
+   "start": "/addons/start/285064",
+   "id": "spider_armor",
+   "nome": "Spider-Armor MK I",
+   "ricetta": [
+    [
+     "Spider-Armor MK I",
+     "Skins/Suit Mods/1-Others/Spider-Armor MK I"
+    ]
+   ],
+   "contenuto": [
+    "skin"
+   ],
+   "img": "https://media.moddb.com/cache/images/downloads/1/286/285064/thumb_620x2000/mod_temp.png",
+   "desc": {
+    "it": "La prima armatura di Spider-Man, ispirata a Web of Spider-Man #100.",
+    "en": "Spider-Man's first armour, inspired by Web of Spider-Man #100.",
+    "de": "Spider-Mans erste Rüstung, inspiriert von Web of Spider-Man #100.",
+    "fr": "La première armure de Spider-Man, inspirée de Web of Spider-Man #100.",
+    "es": "La primera armadura de Spider-Man, inspirada en Web of Spider-Man #100."
+   }
+  },
+  {
+   "pagina": "https://www.moddb.com/mods/spider-man-2-re-alpha/addons/philly-suit-design-by-philadelphia-spiderman-on-tiktok-and-instagram",
+   "file": "Philly_Suit_Design_by_philadelphia_spiderman_on_TikTok_and_Instagram.rar",
+   "byte": 2501130,
+   "md5": "9ba8b0ee55751c573c84cf99765d0b15",
+   "autore": "JayeSGee",
+   "data": "2023-01-16",
+   "start": "/addons/start/244184",
+   "id": "philly",
+   "nome": "Philly Suit",
+   "ricetta": [
+    [
+     "Philly Suit (Design by @philadelphia_spiderman on TikTok and Instagram)",
+     "Skins/Suit Mods/1-Others/Philly Suit (Design by @philadelphia_spiderman on TikTok and Instagram)"
+    ]
+   ],
+   "contenuto": [
+    "skin"
+   ],
+   "img": "https://media.moddb.com/cache/images/downloads/1/245/244184/thumb_620x2000/SM2RE_fanfare1.png",
+   "desc": {
+    "it": "Un costume nato dal design di un cosplayer di Philadelphia.",
+    "en": "A suit born from a Philadelphia cosplayer's design.",
+    "de": "Ein Anzug nach dem Design eines Cosplayers aus Philadelphia.",
+    "fr": "Un costume né du design d'un cosplayeur de Philadelphie.",
+    "es": "Un traje nacido del diseño de un cosplayer de Filadelfia."
+   }
+  },
+  {
+   "pagina": "https://www.moddb.com/mods/spider-man-2-re-alpha/addons/lifegeeksyts-spider-mods-spider-man-2-re3",
+   "file": "LifeGeeksYTs_Spider-Mods_Spider-Man_2_RE.rar",
+   "byte": 36939852,
+   "md5": "f9721940294331519cdfa404d1121e0f",
+   "autore": "JayeSGee",
+   "data": "2022-10-28",
+   "start": "/addons/start/240256",
+   "id": "lifegeeksyt",
+   "nome": "LifeGeeksYT's Spider-Mods",
+   "ricetta": [
+    [
+     "LifeGeeksYT's Spider-Mods (Spider-Man 2 RE)/Suits",
+     "Skins/Suit Mods/1-LifeGeeksYT's Skins"
+    ],
+    [
+     "LifeGeeksYT's Spider-Mods (Spider-Man 2 RE)/Custom Textures",
+     "Skins/1-LifeGeeksYT's Custom Textures"
+    ],
+    [
+     "LifeGeeksYT's Spider-Mods (Spider-Man 2 RE)/HUDs",
+     "Skins/HUDs/1-LifeGeeksYT"
+    ]
+   ],
+   "contenuto": [
+    "skin",
+    "texture",
+    "hud"
+   ],
+   "img": "https://media.moddb.com/cache/images/downloads/1/241/240256/thumb_620x2000/Preview.png",
+   "desc": {
+    "it": "Una raccolta di costumi, texture e un HUD rifatto, con Peter Parker dagli occhi di ragno.",
+    "en": "A bundle of suits, textures and a reworked HUD, with spider-eyed Peter Parker.",
+    "de": "Ein Paket aus Anzügen, Texturen und überarbeitetem HUD, mit Peter Parker mit Spinnenaugen.",
+    "fr": "Un pack de costumes, de textures et un HUD refait, avec Peter Parker aux yeux d'araignée.",
+    "es": "Un paquete de trajes, texturas y un HUD rehecho, con Peter Parker de ojos de araña."
+   }
+  },
+  {
+   "pagina": "https://www.moddb.com/mods/spider-man-2-re-alpha/addons/2003-beta-suit-mod",
+   "file": "2003_Beta_Suit_Mod.rar",
+   "byte": 174968,
+   "md5": "16dcd6cc47d54f51dccb594b78570610",
+   "autore": "KomandoUgur",
+   "data": "2021-02-24",
+   "start": "/addons/start/209455",
+   "id": "beta_2003",
+   "nome": "2003 Beta Suit Mod",
+   "ricetta": [
+    [
+     "",
+     "Skins/Suit Mods/2003_BETA_SUIT"
+    ]
+   ],
+   "contenuto": [
+    "skin"
+   ],
+   "dopo": "re_beta2",
+   "aggiorna": true,
+   "img": "https://media.moddb.com/cache/images/downloads/1/210/209455/thumb_620x2000/GK2E52_2021-02-24_20-47-26.png",
+   "desc": {
+    "it": "Il costume delle versioni beta del 2003, in una versione aggiornata rispetto a quella dentro RE.",
+    "en": "The suit from the 2003 beta builds, in an updated version of the one inside RE.",
+    "de": "Der Anzug aus den Beta-Versionen von 2003, aktualisiert gegenüber dem in RE.",
+    "fr": "Le costume des versions bêta de 2003, en version mise à jour par rapport à celle de RE.",
+    "es": "El traje de las versiones beta de 2003, actualizado respecto al que trae RE."
+   }
+  },
+  {
+   "pagina": "https://www.moddb.com/mods/spider-man-2-re-alpha/addons/tex1-512x256-f1fab63166fd99c4-851435972ec1a204-8",
+   "file": "Vanilla_Colors.zip",
+   "byte": 1584684,
+   "md5": "555ef15b18c9eda9d8ebc4dccf5455ff",
+   "autore": "ThunderTurtle",
+   "data": "2020-07-26",
+   "start": "/addons/start/198143",
+   "id": "vanilla_colors",
+   "nome": "Vanilla Suit Colors HD",
+   "ricetta": [
+    [
+     "",
+     "Skins/Suit Mods/1-Others/Vanilla Suit Colors HD"
+    ]
+   ],
+   "contenuto": [
+    "skin"
+   ],
+   "img": "https://media.moddb.com/cache/images/downloads/1/199/198143/thumb_620x2000/tex1_512x256_f1fab63166fd99c4_85.png",
+   "desc": {
+    "it": "Il costume HD di RE con i colori originali del gioco del 2004: il look di sempre, con più dettaglio.",
+    "en": "RE's HD suit with the original 2004 game colours: the classic look, with more detail.",
+    "de": "Der HD-Anzug von RE in den Originalfarben des Spiels von 2004: der klassische Look, mit mehr Details.",
+    "fr": "Le costume HD de RE aux couleurs d'origine du jeu de 2004 : le look de toujours, plus détaillé.",
+    "es": "El traje HD de RE con los colores originales del juego de 2004: el aspecto de siempre, con más detalle."
+   }
+  }
+ ],
+ "superati": [
+  {
+   "nome": "Spider-Man 2: RE - Beta",
+   "data": "2020-04-25",
+   "pagina": "https://www.moddb.com/mods/spider-man-2-re-alpha/downloads",
+   "sostituito_da": "re_beta2"
+  },
+  {
+   "nome": "Spider-Man 2: RE - Alpha",
+   "data": "2019-12-27",
+   "pagina": "https://www.moddb.com/mods/spider-man-2-re-alpha/downloads",
+   "sostituito_da": "re_beta2"
+  }
+ ]
+}

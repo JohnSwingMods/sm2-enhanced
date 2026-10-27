@@ -1,0 +1,5 @@
+pywebview>=6.2
+pillow>=12
+psutil>=7
+lz4>=4.4
+dolphin-memory-engine>=1.3

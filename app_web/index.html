@@ -1,0 +1,428 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SM2 Enhanced</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <!-- barra laterale -->
+  <nav id="nav">
+    <div class="logo" title="SM2 Enhanced">
+      <svg viewBox="0 0 64 64"><use href="#ragno"/></svg>
+      <div><b>SM2</b><span>ENHANCED</span></div>
+    </div>
+    <button class="voce-nav" data-pagina="gioca"><svg><use href="#i-play"/></svg><span data-t="nav_gioca"></span></button>
+    <button class="voce-nav" data-pagina="installa"><svg><use href="#i-scarica"/></svg><span data-t="nav_installa"></span></button>
+    <button class="voce-nav attiva" data-pagina="skin"><svg><use href="#i-skin"/></svg><span data-t="nav_skin"></span></button>
+    <button class="voce-nav" data-pagina="codici"><svg><use href="#i-codici"/></svg><span data-t="nav_codici"></span></button>
+    <button class="voce-nav" data-pagina="hud"><svg><use href="#i-hud"/></svg><span data-t="nav_hud"></span></button>
+    <button class="voce-nav" data-pagina="texture"><svg><use href="#i-immagine"/></svg><span data-t="nav_texture"></span></button>
+    <button class="voce-nav" data-pagina="cam"><svg><use href="#i-cam"/></svg><span>Spider-Cam</span></button>
+    <button class="voce-nav" data-pagina="grafica"><svg><use href="#i-grafica"/></svg><span data-t="nav_grafica"></span></button>
+    <button class="voce-nav" data-pagina="controller"><svg><use href="#i-hud"/></svg><span data-t="nav_controller"></span></button>
+    <button class="voce-nav" data-pagina="esporta"><svg><use href="#i-esporta"/></svg><span data-t="nav_esporta"></span></button>
+    <div class="spazio"></div>
+    <button class="voce-nav" data-pagina="impostazioni"><svg><use href="#i-ingr"/></svg><span data-t="nav_imp"></span></button>
+    <div class="versione" id="versione"></div>
+  </nav>
+
+  <main>
+    <div id="prova-barra" class="nascosto"><svg><use href="#i-giro"/></svg><span data-t="prova_barra"></span>
+      <button class="leggero mini" id="prova-cartella" data-t="prova_cartella"></button><button class="leggero mini" id="prova-ricomincia" data-t="prova_ricomincia"></button></div>
+    <header id="testa">
+      <div>
+        <h1 id="titolo"></h1>
+        <p id="sottotitolo"></p>
+      </div>
+      <div class="pillole">
+        <div class="pillola" id="p-dolphin"><i></i><span></span></div>
+        <div class="pillola avviso nascosto" id="p-aperto"><i></i><span data-t="dolphin_aperto"></span></div>
+        <button id="btn-comandi" class="testa-btn"><svg><use href="#i-combo"/></svg><span data-t="comandi"></span></button>
+        <div class="lingue"><button id="lingua-btn" data-tip="lingua"><svg><use href="#i-globo"/></svg><b id="lingua-ora">IT</b><svg class="giu"><use href="#i-giu"/></svg></button>
+          <div class="lingue-menu nascosto"><button data-l="it"><b>IT</b>Italiano</button><button data-l="en"><b>EN</b>English</button><button data-l="de"><b>DE</b>Deutsch</button><button data-l="fr"><b>FR</b>Français</button><button data-l="es"><b>ES</b>Español</button></div></div>
+      </div>
+    </header>
+
+    <!-- PAGINA GIOCA (launcher) -->
+    <section class="pagina" id="pg-gioca">
+      <div class="gi-eroe">
+        <canvas id="c-gioca"></canvas>
+        <div class="gi-sagoma nascosto" id="gi-sagoma"><svg><use href="#i-conserte"/></svg><span data-t="gi_sagoma"></span></div>
+        <button class="gi-tondo" id="gi-com-tondo"><span class="cerchio"><svg><use href="#i-combo"/></svg></span><small data-t="comandi"></small></button>
+        <button class="gi-lbrb nascosto" id="gi-lbrb"><span class="pillola"><kbd class="t1">LB</kbd><b class="piu">+</b><kbd class="t2">RB</kbd></span><small data-t="mz_menu"></small></button>
+        <button class="gi-tondo pad nascosto" id="gi-pad-tondo"><span class="cerchio"><svg><use href="#i-hud"/></svg><i class="punto"></i></span><small data-t="gp_vai"></small></button>
+        <div class="gi-anteprima nascosto" id="gi-anteprima"></div>
+        <div class="gi-info" id="gi-info"></div>
+      </div>
+      <div class="gi-lato" id="gi-lato"></div>
+    </section>
+
+    <!-- PAGINA SKIN -->
+    <section class="pagina attiva" id="pg-skin">
+      <div class="slot slot-look">
+        <div class="look">
+          <div class="look-tit"><svg><use href="#i-skin"/></svg><b data-t="look_pri"></b><small data-t="look_pri_sub"></small></div>
+          <div class="look-b">
+            <button data-slot="primaria"><b data-t="look_costume"></b><em class="ora"></em></button>
+            <button data-slot="ragnatele"><b data-t="slot_ragnatele"></b><em class="ora"></em></button>
+          </div>
+        </div>
+        <div class="look alt">
+          <div class="look-tit"><svg><use href="#i-giro"/></svg><b data-t="look_alt"></b><span class="info-slot" id="alt-info" data-tip="alt_info_tit">i</span><small data-t="look_alt_sub"></small></div>
+          <div class="look-b">
+            <button data-slot="alternativa"><b data-t="look_costume"></b><em class="ora"></em></button>
+            <button data-slot="ragnatele_alt"><b data-t="slot_ragnatele"></b><span class="solo-app mini" data-tip="solo_app_tip"><svg><use href="#i-stella-piena"/></svg></span><em class="ora"></em></button>
+          </div>
+        </div>
+      </div>
+
+      <div class="corpo-skin">
+        <!-- palco con anteprima -->
+        <div id="palco">
+          <div class="ragnatela-sfondo"></div>
+          <canvas id="c3d"></canvas>
+          <img id="img2d" class="nascosto" alt="">
+          <div class="info-palco">
+            <div class="etichette"><span id="et-gruppo" class="etichetta"></span><span id="et-stato" class="etichetta"></span></div>
+            <h2 id="nome-palco"></h2>
+            <p id="variante-palco"></p>
+            <p id="crediti-palco" class="crediti"></p>
+          </div>
+          <div class="comandi-palco" id="comandi3d">
+            <button id="b-giro" class="tondo attivo" data-tip="tip_giro"><svg><use href="#i-giro"/></svg></button>
+            <button id="b-fronte" class="tondo" data-tip="tip_fronte"><svg><use href="#i-fronte"/></svg></button>
+            <button id="b-retro" class="tondo" data-tip="tip_retro"><svg><use href="#i-retro"/></svg></button>
+            <div class="pose" id="pose"><button data-posa="idle" data-tip="posa_idle"><svg><use href="#i-conserte"/></svg></button><button data-posa="azione" data-tip="posa_azione"><svg><use href="#i-azione"/></svg></button></div>
+            <button id="b-pers" class="pieno nascosto"><svg><use href="#i-pers"/></svg><span data-t="personalizza"></span></button>
+          </div>
+          <div class="aiuto-palco" data-t="aiuto_3d"></div>
+          <div id="caricamento" class="nascosto"><div class="rotella"></div></div>
+        </div>
+
+        <!-- catalogo -->
+        <div id="catalogo">
+          <div class="filtri">
+            <div class="cerca-riga"><div class="cerca"><svg><use href="#i-cerca"/></svg><input id="cerca" autocomplete="off"><kbd>Ctrl F</kbd></div><button class="leggero piu" data-aggiungi="skin" data-tip="agg_tit_skin"><svg><use href="#i-piu"/></svg><span data-t="agg_bottone"></span></button></div>
+            <div class="chip-riga" id="chip"></div>
+          </div>
+          <div id="griglia"></div>
+          <div id="vuoto" class="nascosto" data-t="nessun_risultato"></div>
+          <!-- pannello personalizza -->
+          <div id="pers" class="nascosto">
+            <div class="pers-testa">
+              <button class="indietro" id="pers-chiudi"><svg><use href="#i-indietro"/></svg></button>
+              <div><h3 id="pers-titolo"></h3><p data-t="pers_sub"></p></div>
+              <button class="leggero" id="pers-default" data-t="pers_default"></button>
+            </div>
+            <div id="pers-livelli"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PAGINA CODICI -->
+    <section class="pagina" id="pg-codici">
+      <div class="cod-barra">
+        <div class="versioni" id="cod-versioni"></div>
+        <label class="spunta" data-tip="tip_tutte"><input type="checkbox" id="cod-tutte"><span></span><b data-t="tutte_versioni"></b></label>
+        <div class="spazio"></div>
+        <div class="cerca piccola"><svg><use href="#i-cerca"/></svg><input id="cod-cerca" autocomplete="off"></div>
+        <button class="leggero" id="cod-consigliati" data-t="ripristina"></button>
+        <button class="leggero piu" id="cod-aggiungi"><svg><use href="#i-piu"/></svg><span data-t="cod_agg"></span></button>
+      </div>
+      <div id="cod-patch" class="nascosto"></div>
+      <div id="cod-essenziali" class="patch-barra cod-ess nascosto"></div>
+      <div id="cod-lista"></div>
+    </section>
+
+    <!-- PAGINA HUD E TASTI -->
+    <section class="pagina" id="pg-hud">
+      <div class="slot">
+        <button data-hslot="hud"><b data-t="hslot_hud"></b><small data-t="hslot_hud_sub"></small><em class="ora"></em></button>
+        <button data-hslot="tasti"><b data-t="hslot_tasti"></b><small data-t="hslot_tasti_sub"></small><em class="ora"></em></button>
+        <button data-hslot="disegno"><b data-t="hslot_disegno"></b><small data-t="hslot_disegno_sub"></small><em class="ora"></em></button>
+      </div>
+      <div class="corpo-skin">
+        <div class="palco2" id="h-palco">
+          <div class="info-palco statico">
+            <div class="etichette"><span id="h-gruppo" class="etichetta"></span><span id="h-stato" class="etichetta"></span></div>
+            <h2 id="h-nome"></h2>
+            <div class="opzioni" id="h-varianti"></div>
+          </div>
+          <div class="vetrina"><img id="h-img" alt=""></div>
+          <div class="pezzi" id="h-pezzi"></div>
+          <p class="nota" id="h-nota"></p>
+        </div>
+        <div id="h-catalogo" class="catalogo2">
+          <div class="filtri"><div class="cerca-riga"><div class="cerca"><svg><use href="#i-cerca"/></svg><input id="h-cerca" autocomplete="off"></div><button class="leggero piu" data-aggiungi="hud" data-tip="agg_tit_hud"><svg><use href="#i-piu"/></svg><span data-t="agg_bottone"></span></button></div></div>
+          <div id="h-griglia" class="griglia2"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PAGINA SPIDER-CAM -->
+    <section class="pagina" id="pg-cam">
+      <div id="cam-avviso" class="avviso-barra nascosto"><span></span><button class="leggero"></button></div>
+      <div id="cam-senza" class="patch-barra cod-ess nascosto"></div>
+      <div id="cam-avvia" class="cam-avvia nascosto"><div class="ca-icona"><svg><use href="#i-play"/></svg></div>
+        <div class="ca-testo"><b data-t="cam_avvia_tit"></b><p data-t="cam_avvia_sub"></p></div>
+        <div class="ca-ver" id="cam-avvia-ver"></div><button class="primario" id="cam-avvia-btn"><svg><use href="#i-play"/></svg><span></span></button></div>
+      <div id="cam-gioco" class="cam-gioco nascosto"><span class="cg-punto"></span><b id="cam-gioco-nome"></b>
+        <label class="cg-sopra" data-tip="cam_sopra_tip"><span data-t="cam_sopra"></span><span class="interruttore mini"><input type="checkbox" id="cam-sopra"><span></span></span></label>
+        <div class="spazio"></div>
+        <button class="leggero" id="cam-intero"><svg><use href="#i-schermo"/></svg><span></span></button>
+        <button class="leggero" id="cam-chiudi"><svg><use href="#i-x"/></svg><span data-t="gioca_chiudi"></span></button></div>
+      <div class="cam-coppia" id="cam-coppia">
+        <div class="cc-carta" data-slot="0"><div class="cc-tit"><svg><use href="#i-cam"/></svg><b data-t="cc_pri"></b><small data-t="cc_pri_sub"></small><em class="cc-ora" data-t="cc_ora"></em></div><div class="cc-scelte"></div></div>
+        <div class="cc-carta alt" data-slot="1"><div class="cc-tit"><svg><use href="#i-giro"/></svg><b data-t="cc_alt"></b><small data-t="cc_alt_sub"></small><em class="cc-ora" data-t="cc_ora"></em></div><div class="cc-scelte"></div></div>
+      </div>
+      <div class="cc-opz cc-amazing nascosto" id="cc-opz-amazing"><span data-t="cc_amazing_spalla"></span></div>
+      <div class="cc-opz nascosto" id="cc-opz-vista"><b data-t="cc_vista"></b><div class="seg" id="cc-vista-scelte"></div>
+        <small id="cc-vista-sub"></small></div>
+      <div class="cc-opz cc-tuffo" id="cc-opz-tuffo">
+        <label class="cc-int"><span><b data-t="cc_tuffo"></b><small data-t="cc_tuffo_sub"></small></span><span class="interruttore"><input type="checkbox" id="cc-tuffo-l3"><span></span></span></label>
+        <label class="cc-int" id="cc-picchiata-riga"><span><b data-t="cc_picchiata"></b><small data-t="cc_picchiata_sub"></small></span><span class="interruttore"><input type="checkbox" id="cc-picchiata"><span></span></span></label></div>
+      <div class="cc-senza-classica nascosto" id="cc-senza-classica"><svg><use href="#i-cam"/></svg><div><b data-t="cc_classica_tit"></b><small data-t="cc_senza_classica"></small></div>
+        <button class="leggero" id="cc-usa-classica" data-t="cc_usa_classica"></button></div>
+      <div class="cc-classica"><b data-t="cc_classica_tit"></b><small data-t="cc_classica_sub"></small><em id="cc-nota"></em></div>
+      <div class="cam-barra">
+        <div class="pillola spento" id="cam-conn"><i></i><span></span></div>
+        <div class="menu-preset">
+          <button class="leggero" id="cam-preset-btn"><small data-t="preset"></small><b id="cam-preset-nome"></b><em id="cam-modificata"></em><span class="freccia">▾</span></button>
+          <div class="menu nascosto" id="cam-preset-menu"></div>
+        </div>
+        <button class="tondo nascosto" id="cam-ripristina" data-tip="cam_ripristina"><svg><use href="#i-giro"/></svg></button>
+        <button class="leggero" id="cam-p-salva" data-t="p_salva"></button>
+        <button class="leggero" id="cam-p-come" data-t="p_salva_come"></button>
+        <button class="leggero" id="cam-p-rinomina" data-t="p_rinomina"></button>
+        <button class="leggero" id="cam-p-elimina" data-t="p_elimina"></button>
+        <div class="spazio"></div>
+        <button class="leggero" id="cam-p-importa" data-t="p_importa"></button>
+        <button class="leggero" id="cam-p-esporta" data-t="p_esporta"></button>
+      </div>
+      <div class="cam-corpo">
+        <div class="cam-tabella">
+          <div class="cam-modo-riga"><div class="seg" id="cam-modo"><button data-m="semplice" data-t="cam_semplice"></button><button data-m="avanzata" data-t="cam_avanzata"></button></div><small id="cam-modo-sub"></small></div>
+          <div id="cam-semplice" class="nascosto"></div>
+          <div id="cam-avanzata">
+          <div class="cam-testata">
+            <span data-t="col_stato"></span>
+            <span data-tip="tip_min" data-t="col_min"></span><span data-tip="tip_des" data-t="col_des"></span>
+            <span data-tip="tip_alt" data-t="col_alt"></span><span data-tip="tip_rit" data-t="col_rit"></span><span></span>
+          </div>
+          <div id="cam-righe"></div>
+          <div class="cam-opzioni">
+            <label class="spunta" data-tip="tip_collega"><input type="checkbox" id="cam-collega"><span></span><b data-t="collega"></b></label>
+            <label class="spunta" data-tip="tip_min_uguale"><input type="checkbox" id="cam-minuguale"><span></span><b data-t="min_uguale"></b></label>
+          </div>
+          </div>
+          <div class="cam-fov">
+            <div class="cam-nome"><b data-t="fov"></b><small data-t="fov_sub"></small></div>
+            <div class="cella larga"><input type="range" id="cam-fov" min="60" max="120" step="1"><input type="number" id="cam-fov-n" min="60" max="120" step="1"><em>°</em></div>
+          </div>
+        </div>
+        <div class="cam-destra">
+          <div class="cam-live">
+            <div class="cam-live-testa"><b data-t="live"></b><span class="solo-app" data-tip="solo_app_tip"><svg><use href="#i-stella-piena"/></svg><span data-t="solo_app"></span></span><span><i></i><em id="cam-adesso">—</em></span></div>
+            <svg id="cam-vista" viewBox="0 0 520 250"></svg>
+            <div class="legenda"><span><i class="lg-voluta"></i><b data-t="voluta"></b></span><span><i class="lg-vera"></i><b data-t="vera"></b></span><span><i class="lg-des"></i><b data-t="desiderata_leg"></b></span></div>
+            <div class="numeri">
+              <div><small data-t="dist_voluta"></small><b id="cam-n-voluta">—</b></div>
+              <div><small data-t="dist_vera"></small><b id="cam-n-vera">—</b></div>
+              <div><small data-t="fov_ora"></small><b id="cam-n-fov">—</b></div>
+            </div>
+          </div>
+          <div class="cam-comandi">
+            <b data-t="in_gioco"></b>
+            <div><kbd>R3</kbd><span data-t="k_switch"></span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- pagine non ancora pronte -->
+    <!-- PAGINA ESPORTA (zip della mod pronta) -->
+    <section class="pagina" id="pg-esporta">
+      <div id="exp-lista"></div>
+    </section>
+
+    <!-- PAGINA INSTALLA (ModDB -> libreria -> Dolphin) -->
+    <section class="pagina" id="pg-installa">
+      <div id="ins-lista"></div>
+    </section>
+
+    <!-- PAGINA TEXTURE PERSONALIZZATE -->
+    <section class="pagina" id="pg-texture">
+      <div class="tx-corpo">
+        <div class="tx-lista" id="tx-lista"></div>
+        <div class="tx-dettaglio" id="tx-dettaglio"></div>
+      </div>
+    </section>
+
+    <!-- PAGINA GRAFICA (impostazioni di Dolphin per il gioco) -->
+    <section class="pagina" id="pg-grafica">
+      <div id="gr-lista"></div>
+    </section>
+
+    <section class="pagina" id="pg-presto">
+      <div class="presto-box">
+        <svg><use href="#ragno"/></svg>
+        <h2 data-t="presto_titolo"></h2>
+        <p data-t="presto_testo"></p>
+      </div>
+    </section>
+
+    <!-- CONTROLLER -->
+    <section class="pagina" id="pg-controller">
+      <div class="ct-griglia">
+        <div class="ct-col">
+          <div class="ct-carta" id="ct-pad"></div>
+          <div class="ct-carta"><h3 data-t="ct_prova"></h3><p class="ct-sub" data-t="ct_prova_sub"></p><div id="ct-prova"></div></div>
+        </div>
+        <div class="ct-col ct-destra">
+          <div id="ct-avvisi"></div>
+          <div class="ct-carta"><h3 data-t="ct_mod"></h3><p class="ct-sub" data-t="ct_mod_sub"></p><div id="ct-extra" class="ct-righe"></div></div>
+          <div class="ct-carta"><div class="ct-testa"><div><h3 data-t="ct_gc"></h3><p class="ct-sub" data-t="ct_gc_sub"></p></div>
+            <button class="leggero" id="ct-ripristina"><svg><use href="#i-giro"/></svg><span data-t="ct_ripristina"></span></button></div>
+            <div id="ct-base" class="ct-righe due"></div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- IMPOSTAZIONI -->
+    <section class="pagina" id="pg-impostazioni">
+      <div class="imp-lista">
+        <div class="imp-sezione" data-t="imp_gioco"></div>
+        <div class="imp-riga"><div><b data-t="gr_osd"></b><p data-t="gr_osd_sub"></p></div>
+          <label class="interruttore"><input type="checkbox" id="imp-osd"><span></span></label></div>
+        <div class="imp-riga"><div><b data-t="gr_fps"></b><p data-t="gr_fps_sub"></p></div>
+          <label class="interruttore"><input type="checkbox" id="imp-fps"><span></span></label></div>
+        <div class="imp-riga"><div><b data-t="gioca_intero"></b><p data-t="gioca_intero_sub"></p></div>
+          <label class="interruttore"><input type="checkbox" id="imp-intero"><span></span></label></div>
+        <div class="imp-riga"><div><b data-t="gr_bordi"></b><p data-t="gr_bordi_sub"></p></div>
+          <label class="interruttore"><input type="checkbox" id="imp-bordi"><span></span></label></div>
+        <div class="imp-riga"><div><b data-t="gioca_solo"></b><p data-t="gioca_solo_sub"></p></div>
+          <label class="interruttore"><input type="checkbox" id="imp-solo"><span></span></label></div>
+        <div class="imp-riga"><div><b data-t="cam_sopra"></b><p data-t="imp_sopra_sub"></p></div>
+          <label class="interruttore"><input type="checkbox" id="imp-sopra"><span></span></label></div>
+        <div class="imp-sezione" data-t="titolo_imp"></div>
+        <div class="imp-riga"><div><b data-t="imp_dolphin"></b><p id="imp-dolphin"></p></div>
+          <div class="bottoni"><button class="leggero" data-apri="texture" data-t="apri_texture"></button><button class="leggero" id="sc-dolphin" data-t="cambia"></button></div></div>
+        <div class="imp-riga"><div><b data-t="imp_pack"></b><p id="imp-pack"></p></div>
+          <div class="bottoni"><button class="leggero" data-apri="pack" data-t="apri"></button><button class="leggero" id="sc-pack" data-t="cambia"></button></div></div>
+        <div class="imp-riga"><div><b data-t="imp_backup"></b><p data-t="imp_backup_sub"></p></div>
+          <div class="bottoni"><button class="leggero" data-apri="backup" data-t="apri"></button></div></div>
+        <div class="imp-riga"><div><b data-t="imp_posa"></b><p data-t="imp_posa_sub"></p></div>
+          <div class="pose" id="pose-catalogo"><button data-posa="idle" data-tip="posa_idle"><svg><use href="#i-conserte"/></svg></button><button data-posa="azione" data-tip="posa_azione"><svg><use href="#i-azione"/></svg></button></div></div>
+        <div class="imp-riga"><div><b data-t="imp_mini"></b><p data-t="imp_mini_sub"></p></div>
+          <div class="bottoni"><button class="leggero" id="rifai-mini" data-t="rifai"></button></div></div>
+        <div class="imp-sezione" data-t="imp_app"></div>
+        <div class="imp-riga"><div><b data-t="imp_versione"></b><p id="imp-versione"></p></div>
+          <div class="bottoni"><button class="leggero" id="imp-upd" data-t="imp_controlla"></button></div></div>
+        <div class="imp-riga"><div><b data-t="imp_edizione"></b><p id="imp-ed-sub"></p></div>
+          <div class="bottoni"><button class="leggero" id="imp-patreon" data-t="plus_patreon"></button></div></div>
+        <div class="imp-riga"><div><b data-t="imp_fan"></b><p data-t="avviso_fan"></p></div></div>
+        <div class="imp-riga"><div><b data-t="cr_tit"></b><p data-t="cr_imp_sub"></p></div>
+          <div class="bottoni"><button class="leggero" id="imp-crediti" data-t="cr_apri"></button></div></div>
+      </div>
+    </section>
+
+    <!-- barra delle modifiche -->
+    <footer id="piede">
+      <div id="modifiche"></div>
+      <div class="bottoni">
+        <button class="leggero" id="annulla" data-t="annulla"></button>
+        <button class="primario" id="applica"><svg><use href="#i-ok"/></svg><span data-t="applica"></span></button>
+      </div>
+    </footer>
+  </main>
+</div>
+
+<div id="toast"></div>
+<div id="trascina" class="nascosto"><div class="tr-box"><div class="tr-icona"><svg><use href="#i-scarica"/></svg></div><div class="rotella"></div>
+  <h3 data-t="tr_rilascia_tit"></h3><p data-t="tr_rilascia"></p><p class="tr-lavoro" data-t="tr_controllo"></p></div></div>
+<div id="lavoro" class="nascosto"><div class="testa"><b></b><small></small><button class="leggero"></button></div><div class="barra"><i></i></div></div>
+<div id="modale" class="nascosto"><div class="finestra"><h3></h3><p></p><input type="text" class="nascosto"><textarea class="nascosto" spellcheck="false"></textarea><div class="spunte nascosto"></div><pre class="nascosto"></pre><div class="bottoni"></div></div></div>
+<div id="tip"></div>
+<div id="comandi" class="nascosto"><div class="com-box"><div class="com-testa"><h3 data-t="comandi_tit"></h3><button class="tondo" id="com-chiudi">×</button></div>
+  <p class="com-legenda" data-t="com_legenda"></p><div id="com-lista"></div><p class="nota" data-t="com_nota"></p><p class="nota nascosto" id="com-rag"><span class="solo-app" data-tip="solo_app_tip"><svg><use href="#i-stella-piena"/></svg><span data-t="solo_app"></span></span><span data-t="com_rag_nota"></span></p></div></div>
+<div id="mz" class="nascosto"><div class="mz-box">
+  <div class="mz-testa"><div><span class="mz-tag"><svg><use href="#i-stella-piena"/></svg><span data-t="mz_tag"></span></span><h3 data-t="mz_tit"></h3><p data-t="mz_sub"></p></div><button class="tondo" id="mz-chiudi">×</button></div>
+  <div class="mz-come"><kbd class="t1">LB</kbd><b class="piu">+</b><kbd class="t2">RB</kbd><span data-t="mz_come"></span></div>
+  <div class="mz-griglia">
+    <div class="mz-voce"><svg><use href="#i-skin"/></svg><b data-t="mz_skin"></b><small data-t="mz_skin_sub"></small></div>
+    <div class="mz-voce"><svg><use href="#i-codici"/></svg><b data-t="mz_codici"></b><small data-t="mz_codici_sub"></small></div>
+    <div class="mz-voce"><svg><use href="#i-cam"/></svg><b data-t="mz_camera"></b><small data-t="mz_camera_sub"></small></div>
+    <div class="mz-voce"><svg><use href="#i-globo"/></svg><b data-t="mz_mappa"></b><small data-t="mz_mappa_sub"></small></div>
+    <div class="mz-voce"><svg><use href="#i-sole"/></svg><b data-t="mz_cielo"></b><small data-t="mz_cielo_sub"></small></div>
+    <div class="mz-voce"><svg><use href="#i-musica"/></svg><b data-t="mz_musica"></b><small data-t="mz_musica_sub"></small></div>
+    <div class="mz-voce"><svg><use href="#i-salva"/></svg><b data-t="mz_stati"></b><small data-t="mz_stati_sub"></small></div>
+  </div>
+  <p class="nota" data-t="mz_nota"></p>
+</div></div>
+<div id="crediti" class="nascosto"><div class="mz-box cr-box">
+  <div class="mz-testa"><div><h3 data-t="cr_tit"></h3><p data-t="cr_sub"></p></div><button class="tondo" id="cr-chiudi">×</button></div>
+  <div id="cr-lista"></div>
+  <p class="nota" data-t="avviso_fan"></p>
+  <div class="bottoni"><button class="leggero" id="cr-licenze" data-t="cr_licenze"></button></div></div></div>
+<div id="tx-zoom" class="nascosto"><div class="tx-zoom-box"><div class="tx-zoom-testa"><b></b><span></span><button class="tondo" title="Esc">×</button></div>
+  <div class="tx-confronto"><img class="sotto" alt=""><div class="sopra"><img alt=""></div><div class="manico"><i></i></div>
+    <em class="lab-sx"></em><em class="lab-dx"></em></div><p></p></div></div>
+<canvas id="c-foto" width="220" height="260" style="position:absolute;left:-9999px"></canvas>
+
+<!-- icone -->
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <symbol id="ragno" viewBox="0 0 64 64"><g fill="currentColor"><ellipse cx="32" cy="22" rx="5" ry="6"/><ellipse cx="32" cy="38" rx="7" ry="11"/>
+      <path d="M27 20 L14 8 L6 14 M37 20 L50 8 L58 14 M26 30 L8 24 L2 32 M38 30 L56 24 L62 32 M26 38 L10 44 L6 56 M38 38 L54 44 L58 56 M28 46 L20 58 L16 62 M36 46 L44 58 L48 62" stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+    <symbol id="i-skin" viewBox="0 0 24 24"><path d="M8 3l-5 3 2 5 2-1v11h10V10l2 1 2-5-5-3c-.5 1.7-2 3-4 3s-3.5-1.3-4-3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+    <symbol id="i-codici" viewBox="0 0 24 24"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5M14 4l-4 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-hud" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="6" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8 10v4M6 12h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="15.5" cy="11" r="1.2" fill="currentColor"/><circle cx="17.5" cy="13.5" r="1.2" fill="currentColor"/></symbol>
+    <symbol id="i-cam" viewBox="0 0 24 24"><rect x="3" y="7" width="13" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M16 11l5-3v8l-5-3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+    <symbol id="i-ingr" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-giro" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.7M20 4v5h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-fronte" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="10.4" cy="8" r=".9" fill="currentColor"/><circle cx="13.6" cy="8" r=".9" fill="currentColor"/></symbol>
+    <symbol id="i-retro" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" fill="currentColor"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-pers" viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h4M12 17h8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="16" cy="7" r="2.2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="10" cy="17" r="2.2" fill="none" stroke="currentColor" stroke-width="1.8"/></symbol>
+    <symbol id="i-cerca" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M16 16l4.5 4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-indietro" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-ok" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-conserte" viewBox="0 0 24 24"><circle cx="12" cy="5" r="2.6" fill="currentColor"/><path d="M8 9h8l1 6H7z" fill="currentColor" opacity=".35"/><path d="M6.5 12.5h11M6.5 12.5l2-3M17.5 12.5l-2-3" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/><path d="M9.5 15l-1 7M14.5 15l1 7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="i-azione" viewBox="0 0 24 24"><circle cx="13" cy="4.5" r="2.4" fill="currentColor"/><path d="M12 8l-2 6 4 2 1 6M10 14l-4 3M12 9l5 1 2-3M12 9l-5-1-2 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></symbol>
+<symbol id="i-grafica" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8 20h8M12 16v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-fulmine" viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 9-12h-7z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+    <symbol id="i-immagine" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="9" cy="10" r="2" fill="currentColor"/><path d="M3 18l6-5 4 3 3-2 5 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+    <symbol id="i-stella-piena" viewBox="0 0 24 24"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z" fill="currentColor"/></symbol>
+    <symbol id="i-stella" viewBox="0 0 24 24"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+    <symbol id="i-bilancia" viewBox="0 0 24 24"><path d="M12 4v16M7 20h10M5 8h14M5 8l-3 6a3 3 0 006 0zM19 8l-3 6a3 3 0 006 0z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/></symbol>
+    <symbol id="i-piuma" viewBox="0 0 24 24"><path d="M20 4C10 4 5 9 5 19M5 19c8 0 13-5 15-15M9 15l5-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-piu" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
+<symbol id="i-scarica" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 19h14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-esporta" viewBox="0 0 24 24"><path d="M12 15V4M7 9l5-5 5 5M5 14v5h14v-5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-pc" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8 20h8M12 16v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-telefono" viewBox="0 0 24 24"><rect x="2.5" y="7" width="19" height="10" rx="4" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="7" cy="12" r="1.6" fill="currentColor"/><path d="M15.5 10.5h3M17 9v3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+    <symbol id="i-portatile" viewBox="0 0 24 24"><rect x="4.5" y="5" width="15" height="10.5" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M2 18.5h20" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-schermo" viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="i-globo" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M3 12h18M12 3c2.6 2.6 3.9 5.6 3.9 9s-1.3 6.4-3.9 9c-2.6-2.6-3.9-5.6-3.9-9S9.4 5.6 12 3z" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol>
+    <symbol id="i-giu" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.2v13.6a.8.8 0 0 0 1.2.7l10.6-6.8a.8.8 0 0 0 0-1.4L9.2 4.5A.8.8 0 0 0 8 5.2z" fill="currentColor"/></symbol>
+    <symbol id="i-xbox" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M7.5 6.5c3 2 6 5 9 11M16.5 6.5c-3 2-6 5-9 11" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-sole" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2" fill="currentColor"/><path d="M12 2.5v2.6M12 18.9v2.6M2.5 12h2.6M18.9 12h2.6M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></symbol>
+    <symbol id="i-musica" viewBox="0 0 24 24"><path d="M9 18V5l11-2v13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="6.5" cy="18" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="17.5" cy="16" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/></symbol>
+    <symbol id="i-salva" viewBox="0 0 24 24"><path d="M5 4h11l3 3v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8 4v5h7V4M8 20v-6h8v6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+    <symbol id="i-lucchetto" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2.2" fill="currentColor"/><path d="M8 10.5V7.8a4 4 0 0 1 8 0v2.7" fill="none" stroke="currentColor" stroke-width="2.2"/></symbol>
+    <symbol id="i-occhio" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+    <symbol id="i-combo" viewBox="0 0 24 24"><circle cx="5" cy="6.5" r="1.9" fill="currentColor"/><circle cx="5" cy="12" r="1.9" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="5" cy="17.5" r="1.9" fill="currentColor"/><path d="M9.5 6.5h10M9.5 12h10M9.5 17.5h7" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></symbol>
+  </defs>
+</svg>
+<script src="lingue.js"></script>
+<script src="viewer.js"></script>
+<script src="app.js"></script>
+<script src="controller.js"></script>
+<script src="pad.js"></script>
+</body>
+</html>

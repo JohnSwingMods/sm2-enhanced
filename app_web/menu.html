@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<title>SM2 Enhanced · menu</title>
+<link rel="stylesheet" href="menu.css">
+</head>
+<body>
+<div id="menu">
+  <header>
+    <div class="mn-logo"><svg viewBox="0 0 64 64"><use href="#ragno"/></svg><div><b>SPIDER-MAN 2</b><span id="mn-ver"></span></div></div>
+    <nav id="mn-tab">
+      <kbd class="pad lb">LB</kbd>
+      <button data-tab="ora"><svg><use href="#i-mondo"/></svg><span data-t="mn_mondo"></span></button>
+      <button data-tab="skin"><svg><use href="#i-skin"/></svg><span data-t="mn_skin"></span></button>
+      <button data-tab="codici"><svg><use href="#i-codici"/></svg><span data-t="mn_codici"></span></button>
+      <button data-tab="cam"><svg><use href="#i-cam"/></svg><span data-t="mn_cam"></span></button>
+      <button data-tab="musica"><svg><use href="#i-musica"/></svg><span data-t="mn_musica"></span></button>
+      <kbd class="pad rb">RB</kbd>
+    </nav>
+    <div class="mn-destra">
+      <div class="mn-tasto-tondo"><button id="mn-stati" class="tondo-piccolo stati" data-t-title="mn_stati"><svg><use href="#i-salva"/></svg></button><kbd class="pad">Menu</kbd></div>
+      <div class="mn-tasto-tondo"><button id="mn-pad" class="tondo-piccolo" data-t-title="mn_sistema"><svg><use href="#i-pad"/></svg><i></i></button><kbd class="pad">View</kbd></div>
+    </div>
+  </header>
+
+  <section class="mn-pagina" id="mp-ora"></section>
+
+  <section class="mn-pagina" id="mp-skin">
+    <div class="mn-palco">
+      <canvas id="mn-3d"></canvas>
+      <div class="mn-nome"><small id="mn-gruppo"></small><b id="mn-skin-nome"></b><span id="mn-autore"></span><em id="mn-uso" class="nascosto"></em></div>
+    </div>
+    <div class="mn-lista">
+      <div class="mn-slot"><kbd class="pad">LT</kbd>
+        <div class="mn-look"><small data-t="look_pri"></small><div class="mn-look-b">
+          <button data-slot="primaria"><span data-t="look_costume"></span><small id="mn-s-primaria"></small></button>
+          <button data-slot="ragnatele"><span data-t="slot_ragnatele"></span><small id="mn-s-ragnatele"></small></button></div></div>
+        <div class="mn-look alt"><small data-t="look_alt_menu"></small><div class="mn-look-b">
+          <button data-slot="alternativa"><span data-t="look_costume"></span><small id="mn-s-alternativa"></small></button>
+          <button data-slot="ragnatele_alt"><span data-t="slot_ragnatele"></span><small id="mn-s-ragnatele_alt"></small></button></div></div>
+        <kbd class="pad">RT</kbd></div>
+      <div id="mn-avviso" class="nascosto"></div>
+      <div id="mn-ordine" class="mn-ordine"></div>
+      <div id="mn-griglia"></div>
+      <div id="mn-varianti" class="nascosto"></div>
+      <div id="mn-lettera" class="nascosto"></div>
+    </div>
+  </section>
+  <section class="mn-pagina" id="mp-codici">
+    <div class="cd-lista" id="cd-lista"></div>
+    <div class="cd-lato"><div class="cd-info" id="cd-info"></div><div class="cd-mod nascosto" id="cd-mod"></div></div>
+    <div class="cd-scelta nascosto" id="cd-scelta"></div>
+  </section>
+  <section class="mn-pagina" id="mp-cam">
+    <div class="cam-sx"><div class="cam-righe" id="cam-righe"></div><div class="cam-info" id="cam-info"></div></div>
+    <div class="cam-dx"><div id="cam-vivo" class="cam-vivo"></div><div class="cam-vista" id="cam-vista"></div>
+      <div class="cam-salva"><kbd class="pad y">Y</kbd><span data-t="cam_m_salva_lungo"></span><small id="cam-salva-stato"></small></div></div>
+  </section>
+  <section class="mn-pagina" id="mp-musica">
+    <div class="mu-fondo" id="mu-fondo"></div>
+    <div class="mu-box" id="mu-box">
+      <div class="mu-cover"><img id="mu-img" alt=""><svg><use href="#i-musica"/></svg></div>
+      <div class="mu-info"><small id="mu-app"></small><h2 id="mu-titolo"></h2><p id="mu-artista"></p>
+        <div class="mu-barra"><i id="mu-pos"></i></div><div class="mu-tempi"><span id="mu-t1"></span><span id="mu-t2"></span></div>
+        <div class="mu-comandi"><button data-mu="prev"><svg><use href="#i-prev"/></svg></button>
+          <button data-mu="play" class="grande"><svg><use href="#i-play" id="mu-play-ico"/></svg></button>
+          <button data-mu="next"><svg><use href="#i-next"/></svg></button></div>
+        <div class="mu-vol nascosto" id="mu-vol"><svg><use href="#i-volume"/></svg><div class="mu-vol-b"><i id="mu-vol-barra"></i></div><b id="mu-vol-n"></b><span><kbd class="pad">↑</kbd><kbd class="pad">↓</kbd></span></div></div>
+    </div>
+    <div class="mu-vuoto nascosto" id="mu-vuoto"><svg><use href="#i-musica"/></svg><h3 data-t="mu_niente"></h3><p data-t="mu_niente_sub"></p></div>
+  </section>
+
+  <div id="mn-pannello-pad" class="nascosto"><div class="mn-pp"><h3><svg><use href="#i-pad"/></svg><span data-t="mn_sistema"></span></h3>
+    <div id="mn-si-voci"></div>
+    <h4 data-t="mn_controller"></h4><div id="mn-pp-stato"></div><div id="mn-pp-comandi"></div><p class="mn-pp-nota" data-t="mn_pp_nota"></p></div></div>
+
+  <div id="mn-pannello-stati" class="nascosto"><div class="mn-st"><h3><svg><use href="#i-salva"/></svg><span data-t="mn_stati"></span><span id="mn-st-modi"></span><small id="mn-st-avviso"></small></h3>
+    <div id="mn-st-lista"></div></div></div>
+
+  <div id="cam-barra"></div>
+  <footer id="mn-piede"></footer>
+  <div id="mn-toast" class="nascosto"></div>
+</div>
+<!-- velo sopra TUTTO il gioco nei passaggi (mappa 3D che si apre/chiude, viaggio): la foto del gioco che si sfoca, il lavoro
+     sotto (mappa che si apre, Spidey che si sposta, città che si carica) non si vede, poi si rimette a fuoco sul gioco nuovo -->
+<div id="mn-copri"><img class="cp-a" alt=""><img class="cp-b" alt="">
+  <div class="cp-testo"><div class="cp-giro"></div><div class="cp-ok">✓</div><b></b><small></small></div></div>
+
+<svg width="0" height="0" style="position:absolute"><defs>
+  <symbol id="ragno" viewBox="0 0 64 64"><g fill="currentColor"><ellipse cx="32" cy="22" rx="5" ry="6"/><ellipse cx="32" cy="38" rx="7" ry="11"/>
+      <path d="M27 20 L14 8 L6 14 M37 20 L50 8 L58 14 M26 30 L8 24 L2 32 M38 30 L56 24 L62 32 M26 38 L10 44 L6 56 M38 38 L54 44 L58 56 M28 46 L20 58 L16 62 M36 46 L44 58 L48 62" stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+  <symbol id="i-skin" viewBox="0 0 24 24"><path d="M8 3l-5 3 2 5 2-1v11h10V10l2 1 2-5-5-3c-.5 1.7-2 3-4 3s-3.5-1.3-4-3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+  <symbol id="i-codici" viewBox="0 0 24 24"><path d="m8 7-5 5 5 5M16 7l5 5-5 5M14 4l-4 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-musica" viewBox="0 0 24 24"><path d="M9 18V5l11-2v13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="6.5" cy="18" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="17.5" cy="16" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/></symbol>
+  <symbol id="i-pad" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="6" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8 10v4M6 12h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="15.5" cy="11" r="1.2" fill="currentColor"/><circle cx="17.5" cy="13.5" r="1.2" fill="currentColor"/></symbol>
+  <symbol id="i-pausa" viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1" fill="currentColor"/><rect x="14" y="5" width="4" height="14" rx="1" fill="currentColor"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.5v13l10.5-6.5z" fill="currentColor"/></symbol>
+  <symbol id="i-pausa2" viewBox="0 0 24 24"><rect x="6.5" y="5" width="4" height="14" rx="1.2" fill="currentColor"/><rect x="13.5" y="5" width="4" height="14" rx="1.2" fill="currentColor"/></symbol>
+  <symbol id="i-prev" viewBox="0 0 24 24"><path d="M18 6v12l-8.5-6zM6 6h2.2v12H6z" fill="currentColor"/></symbol>
+  <symbol id="i-next" viewBox="0 0 24 24"><path d="M6 6v12l8.5-6zM15.8 6H18v12h-2.2z" fill="currentColor"/></symbol>
+  <symbol id="i-salva" viewBox="0 0 24 24"><path d="M5 4h11l3 3v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8 4v5h7V4M8 20v-6h8v6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+  <symbol id="i-stella" viewBox="0 0 24 24"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z" fill="currentColor"/></symbol>
+  <symbol id="i-cam" viewBox="0 0 24 24"><rect x="3" y="7" width="13" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m16 11 5-3v8l-5-3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+  <symbol id="i-volume" viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+  <symbol id="i-esci" viewBox="0 0 24 24"><path d="M12 3v9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M7.5 6.5a7 7 0 1 0 9 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="i-sole" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2" fill="currentColor"/><path d="M12 2.5v2.6M12 18.9v2.6M2.5 12h2.6M18.9 12h2.6M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></symbol>
+  <symbol id="i-mondo" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M3 12h18M12 3c2.6 2.6 3.8 5.6 3.8 9s-1.2 6.4-3.8 9M12 3C9.4 5.6 8.2 8.6 8.2 12s1.2 6.4 3.8 9" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 22s7-6.6 7-12.2A7 7 0 0 0 5 9.8C5 15.4 12 22 12 22Z" fill="currentColor"/><circle cx="12" cy="9.6" r="2.7" fill="#0b0e16"/></symbol>
+  <symbol id="i-alba" viewBox="0 0 24 24"><path d="M6.5 17a5.5 5.5 0 0 1 11 0" fill="currentColor"/><path d="M2.5 20.5h19M12 4.5v3M4.6 9.6l2 2M19.4 9.6l-2 2M1.5 17h2.6M19.9 17h2.6" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></symbol>
+  <symbol id="i-tramonto" viewBox="0 0 24 24"><path d="M6.5 17a5.5 5.5 0 0 1 11 0" fill="currentColor"/><path d="M2.5 20.5h19M12 3.5v4M9.6 5.6 12 8l2.4-2.4M1.5 17h2.6M19.9 17h2.6" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" fill="none"/></symbol>
+  <symbol id="i-luna" viewBox="0 0 24 24"><path d="M20 14.6A8.5 8.5 0 0 1 9.4 4a8.5 8.5 0 1 0 10.6 10.6Z" fill="currentColor"/></symbol>
+  <symbol id="i-riduci" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8 20h8" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
+  <symbol id="i-schermo" viewBox="0 0 24 24"><path d="M4 9V5h4M20 9V5h-4M4 15v4h4M20 15v4h-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-ok" viewBox="0 0 24 24"><path d="m5 12 5 5L20 7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+</defs></svg>
+<script src="lingue.js"></script>
+<script src="viewer.js"></script>
+<script src="menu.js"></script>
+<script src="menu_cielo.js"></script>
+<script src="menu_mappa.js"></script>
+</body>
+</html>

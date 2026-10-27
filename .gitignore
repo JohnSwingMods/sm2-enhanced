@@ -1,0 +1,9 @@
+build/
+dist/
+__pycache__/
+*.pyc
+*.spec
+pack_sviluppo.txt
+pack_salvataggi/
+contenuti/Controller/
+versione_exe.txt
