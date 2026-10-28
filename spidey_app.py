@@ -201,6 +201,7 @@ class Api:
         threading.Thread(target=self._riaccendi_camera, daemon=True).start()  # codice camera rimasto spento da Spider-Cam
         self._menu, self._menu_aperto, self._menu_gioco = None, False, None
         self._menu_lock = threading.Lock()  # aprire / chiudere uno alla volta (premendo LB + RB di fila si accavallavano)
+        self._pad_app, self._pad_app_lock = None, threading.Lock()  # pad letti per la pagina (pad_leggi)
         self._menu_fin_lock = threading.Lock()  # una finestra del menu sola (preparazione e primo LB + RB insieme)
         self._riavvio_lock = threading.Lock()  # un riavvio del gioco alla volta (due A di fila = due Dolphin)
         self._hud_snap = None  # stato dell'HUD (817F0014) prima di premere LB: il menu lo rimette com'era
@@ -1749,6 +1750,12 @@ class Api:
                 tasti = inst["path"] if inst else None
         if tasti:
             ins.tasti(pack, tasti, self._conf.get("disegno_controller", {}))
+            if scelte.get("tasti") and pack:  # ricordo la scelta per la sua famiglia: i tasti automatici rimettono questa
+                lc = Path(pack) / "Layout Controller"
+                voce = next((c for c in core.catalogo_tasti(pack) if Path(tasti) == lc / c["id"] or lc / c["id"] in Path(tasti).parents), None)
+                if voce:
+                    self._conf.setdefault("tasti_fam", {})[core.famiglia_tasti(voce["id"])] = voce["id"]
+                    core.scrivi_config(self._conf)
         ris = ins.esegui()
         ris["dolphin_aperto"] = bool(core.exe_dolphin_aperti())
         return ris
@@ -1812,7 +1819,7 @@ class Api:
         except OSError:
             return
         prima, tenuto, gioco, quando, hud_quando, ripetuti, stick_vivo = 0, {}, None, 0.0, 0.0, {}, False
-        sin_vivo = False
+        sin_vivo, pad_log, errore_pad, xbox_visto = False, 0, False, False
         dorsali = {}  # LB/RB premuti col menu aperto: valgono al RILASCIO, se intanto non è arrivato anche l'altro (LB+RB)
         import app_controller
         ps = self._pad_ps = app_controller.PadWinmm()  # pad PlayStation / Switch Pro (non sono XInput): stessi tasti del pad Xbox
@@ -1838,6 +1845,15 @@ class Api:
                 if not getattr(self, "_menu_preparato", False):  # gioco appena comparso: preparo il menu (nascosto)
                     self._menu_preparato = True
                     threading.Thread(target=self._menu_prepara, daemon=True).start()
+                    pad_log = ora + 4  # tra poco scrivo nel menu.log quali pad vedo (PS5 dall'amico: menu che non si apriva)
+                if pad_log and ora >= pad_log:
+                    pad_log = 0
+                    try:
+                        vis = [f"{p['tipo']}:{p['nome']}" + (f" {p['vid']}:{p['pid']}" if p.get("vid") else "") for p in app_controller.pad_collegati()]
+                        self._log_menu(f"pad visti: {', '.join(vis) or 'nessuno'} | letti: xinput={int(xbox_visto)} "
+                                       f"winmm={[d['nome'] for d in ps.dispositivi]} hid={[d['nome'] for d in hidpad.dispositivi]}")
+                    except Exception as e:  # noqa: BLE001
+                        self._log_menu(f"pad visti: errore {e!r}")
                 b, xbox_visto, destro, sinistro = 0, False, (0.0, 0.0), (0.0, 0.0)
                 for i in range(4):
                     st = ST()
@@ -1859,8 +1875,10 @@ class Api:
                     for d in (ps.sinistro, hidpad.sinistro):
                         if abs(d[0]) + abs(d[1]) > abs(sinistro[0]) + abs(sinistro[1]):
                             sinistro = d
-                except Exception:  # noqa: BLE001
-                    pass
+                except Exception as e:  # noqa: BLE001 - un pad strano non deve fermare gli altri (ma lo scrivo, una volta)
+                    if not errore_pad:
+                        errore_pad = True
+                        self._log_menu(f"pad PlayStation/HID: errore {e!r}")
                 self._pad_bits, self._pad_quando = b, ora  # per _aspetta_rilascio (un solo lettore dei pad: questo filo)
                 self._pad_levette = (sinistro, destro)  # per la vista 3D della città (la legge il suo filo)
                 combo = 0x0100 | 0x0200
@@ -3217,7 +3235,46 @@ class Api:
         r["nomi_sdl"] = ac.NOMI_SDL
         r["dolphin_aperto"] = bool(core.exe_dolphin_aperti())
         r["pad"] = self._pad()
+        f = ac.file_profilo(dolphin) if dolphin else None
+        letta = ac.inversione(ac.leggi(f)) if f and f.is_file() else {}
+        scelta = self._conf.get("cam_inverti") or {}
+        r["inverti"] = {a: bool(letta.get(a)) if letta.get(a) is not None else bool(scelta.get(a)) for a in ("y", "x")}
         return r
+
+    @protetto
+    def controller_inverti(self, asse, si):
+        """Camera invertita su/giù (asse "y") o sinistra/destra ("x"): nel profilo del pad (vale per tutte le camere,
+        anche quella del gioco, e nella mod esportata) e ricordata (config cam_inverti) per quando il profilo si rifà."""
+        import app_controller as ac
+        if asse not in ("y", "x"):
+            return {"errore": "asse"}
+        dolphin = core.trova_dolphin(self._conf)
+        if not dolphin:
+            return {"errore": "dolphin"}
+        self._conf.setdefault("cam_inverti", {})[asse] = bool(si)
+        core.scrivi_config(self._conf)
+        f = ac.file_profilo(dolphin)
+        if not f.is_file():
+            ac.assicura(dolphin, None)
+        ac.applica_inversione(dolphin, self._conf["cam_inverti"])
+        return self.controller_stato()
+
+    def pad_leggi(self):
+        """Tutti i pad collegati, letti da Python (app_controller.LettorePad) ~30 volte al secondo dalla pagina: tasti già
+        nell'ordine di un pad Xbox per ogni marca, nome vero, quale hai toccato per ultimo. Il Gamepad del browser
+        chiamava "Xbox 360 Controller" ogni pad XInput, a volte "Unknown Gamepad" coi tasti in un altro ordine, e con due
+        pad guardava solo il primo."""
+        try:
+            with self._pad_app_lock:
+                if self._pad_app is None:
+                    import app_controller
+                    self._pad_app = app_controller.LettorePad()
+                return self._pad_app.leggi()
+        except Exception as e:  # noqa: BLE001 - la pagina ripiega sul Gamepad del browser
+            if not getattr(self, "_pad_app_errore", False):
+                self._pad_app_errore = True
+                core.log_errore(f"pad_leggi: {e!r}")
+            return None
 
     @protetto
     def controller_salva(self, device, base, extra):
@@ -3244,7 +3301,8 @@ class Api:
         if verso == "sdl":
             base, extra = ac.converti_backend(info, "sdl")
             dev = f"SDL/0/{ac.NOMI_SDL.get(nome_sdl, nome_sdl) or ac.NOMI_SDL['ps5']}"  # chiave (ps5/ps4/switch) o nome (meglio controller_auto)
-        ac.scrivi(ac.file_profilo(dolphin), ac.componi(righe, dev, base, extra))
+        # profilo da capo: la camera invertita scelta nell'app resta (config cam_inverti)
+        ac.scrivi(ac.file_profilo(dolphin), ac.inverti(ac.componi(righe, dev, base, extra), self._conf.get("cam_inverti"))[0])
         return self.controller_stato()
 
     def _dispositivi_dolphin(self, attesa=9):
@@ -3342,7 +3400,7 @@ class Api:
         else:  # già SDL: tengo i tasti, cambio solo il nome del dispositivo
             righe = ac.leggi(f)
             base, extra = prof["base"], prof["extra"]
-        ac.scrivi(f, ac.componi(righe, dev, base, extra))
+        ac.scrivi(f, ac.inverti(ac.componi(righe, dev, base, extra), self._conf.get("cam_inverti"))[0])
         st = self._controller_ini_sistema(dolphin)
         st["dispositivo"] = dev
         return st
@@ -3378,7 +3436,8 @@ class Api:
         gv = core.grafica_valori(dolphin, self._conf.get("ultima_versione") or "GK2E52") if dolphin else {}
         return {"osd": bool(self._conf.get("notifiche_dolphin", False)), "fps": bool(gv.get("fps")),
                 "intero": bool(self._conf.get("gioca_intero", True)), "solo": bool(self._conf.get("gioca_solo", True)),
-                "sopra": self._sopra(), "bordi": bool(self._conf.get("schermo_senza_bordi", True))}
+                "sopra": self._sopra(), "bordi": bool(self._conf.get("schermo_senza_bordi", True)),
+                "tasti": bool(self._conf.get("tasti_auto", True))}
 
     @protetto
     def grafica_android_salva(self, valori):
@@ -3684,6 +3743,12 @@ class Api:
                 "nomi": core.NOMI_VERSIONE, "catalogo": cat, "libreria": str(lib), "installati": info.get("componenti", {}),
                 "formato": info.get("formato"), "estrattore": bool(core._estrattore()), "texconv": bool(core.texconv()),
                 "dolphin_aperto": bool(core.exe_dolphin_aperti()), "download": str(core.cartella_download())}
+
+    @protetto
+    def installer_gpu(self):
+        """Con quale scheda video texconv converte in DDS (prova di ~1-4 s la prima volta): gpu None = solo processore,
+        circa 12 volte più lento -> l'installer consiglia i PNG."""
+        return core.texconv_gpu()
 
     @protetto
     def installer_archivi(self):
@@ -4284,6 +4349,7 @@ class Api:
             import app_controller
             app_controller.aggiorna_vecchio(dolphin, self._conf)  # vecchio profilo -> L3 costume, R3 camera, Select mappa, LB HUD
             app_controller.assicura(dolphin, gid)  # anche senza mod/codici: il pad funziona col profilo dell'app
+            app_controller.applica_inversione(dolphin, self._conf.get("cam_inverti"))  # camera invertita scelta nell'app
         except Exception:  # noqa: BLE001 - non deve mai bloccare l'avvio
             pass
         pad_auto = None
@@ -4294,6 +4360,11 @@ class Api:
                 pad_auto = r.get("dispositivo") or (v["pad"] or {}).get("nome") if not r.get("errore") else None
         except Exception as e:  # noqa: BLE001
             core.log_errore(f"pad automatico all'avvio: {e!r}")
+        tasti_auto = None
+        try:  # tasti a schermo della famiglia del pad (col PS5 dall'amico il gioco mostrava ancora i tasti Xbox)
+            tasti_auto = self._tasti_per_pad(dolphin)
+        except Exception as e:  # noqa: BLE001 - non deve mai bloccare l'avvio
+            core.log_errore(f"tasti a schermo automatici: {e!r}")
         if ricorda:
             self._conf["ultima_versione"], self._conf["gioca_solo"], self._conf["gioca_intero"] = gid, bool(solo), bool(intero)
             core.scrivi_config(self._conf)
@@ -4312,7 +4383,35 @@ class Api:
         avvia_esterno([str(exe)] + (["-b"] if solo else []) + intero_arg + stato + ["-e", str(disco)], cwd=str(exe.parent))
         if dopo:
             threading.Thread(target=self._carica_quando_pronto, args=(gid, slot), daemon=True).start()
-        return {"ok": True, "trucchi": trucchi, "dopo": dopo, "pad_auto": pad_auto}
+        return {"ok": True, "trucchi": trucchi, "dopo": dopo, "pad_auto": pad_auto, "tasti_auto": tasti_auto}
+
+    def _tasti_per_pad(self, dolphin):
+        """Prima di giocare: se il pad collegato è PlayStation e nel gioco ci sono i tasti a schermo Xbox (o il contrario),
+        mette i tasti dell'altra famiglia: quelli scelti l'ultima volta per quella famiglia (config tasti_fam, scritto da
+        hud_applica), se no i predefiniti. Solo se i tasti installati sono della mod (riconosciuti) e con "tasti_auto"
+        acceso (Impostazioni > Quando giochi). Ritorna il nome dei tasti messi, o None."""
+        if not self._conf.get("tasti_auto", True) or not dolphin:
+            return None
+        v = self._pad()
+        fam = {"xbox": "xbox", "ps": "ps"}.get(((v or {}).get("pad") or {}).get("tipo"))
+        pack = core.trova_pack(self._conf)
+        if not fam or not pack:
+            return None
+        cat = core.catalogo_tasti(pack)
+        inst = core.installate_hud(dolphin, [], cat).get("tasti")
+        if not inst or inst.get("id") in (None, "?") or core.famiglia_tasti(inst["id"]) == fam:
+            return None
+        della = [c for c in cat if core.famiglia_tasti(c["id"]) == fam]
+        base = "SPIDER" if fam == "ps" else Path(core.SCELTE_BASE["tasti"]).name.upper()
+        voce = (next((c for c in della if c["id"] == self._conf.get("tasti_fam", {}).get(fam)), None)
+                or next((c for c in della if base in c["id"].upper()), None) or (della[0] if della else None))
+        if not voce:
+            return None
+        ins = core.Installazione(dolphin)
+        ins.tasti(pack, voce["default"], self._conf.get("disegno_controller", {}))
+        ins.esegui()
+        self._log_menu(f"tasti a schermo: pad {fam} -> {voce['id']} (prima {inst['id']})")
+        return voce["nome"]
 
     def _carica_quando_pronto(self, gid, slot):
         import time
@@ -5007,6 +5106,90 @@ class Api:
             os.replace(self._agg.vecchio, nuovo)
             return {"errore": "upd_scambio"}
         threading.Timer(0.4, lambda: self._finestra.destroy()).start()
+        return True
+
+    SEGNALA_URL = "https://github.com/JohnSwingMods/sm2-enhanced/issues/new"
+
+    @protetto
+    def segnala_prepara(self, errore=None):
+        """"Segnala un problema": zip in Download con le informazioni utili (versioni, PC, controller, impostazioni
+        principali) e la coda dei registri (errori, uscite, crash, menu), SENZA nome utente, nome del PC né percorsi
+        personali (sostituiti). errore = il messaggio appena mostrato, se si arriva da un errore. Ritorna il file e la
+        pagina di GitHub per scrivere la segnalazione (titolo e testo già pronti, solo versioni: niente dati personali)."""
+        import platform
+        import re
+        import urllib.parse
+        import zipfile
+        from datetime import datetime
+        casa, utente, pc = str(Path.home()), os.environ.get("USERNAME", ""), os.environ.get("COMPUTERNAME", "")
+
+        def pulito(s):
+            s = str(s)
+            for vero, finto in ((casa, "<home>"), (casa.replace("\\", "/"), "<home>")):
+                s = re.sub(re.escape(vero), finto, s, flags=re.I)
+            for nome, finto in ((utente, "<utente>"), (pc, "<pc>")):
+                if len(nome) >= 3:
+                    s = re.sub(r"(?<![A-Za-z0-9])" + re.escape(nome) + r"(?![A-Za-z0-9])", finto, s, flags=re.I)
+            return s
+
+        dolphin = core.trova_dolphin(self._conf)
+        exe = core.trova_exe_dolphin(self._conf, dolphin) if dolphin else None
+        righe = [f"SM2 Enhanced {core.VERSIONE_APP}", f"Windows {platform.release()} ({platform.version()}, {platform.machine()})"]
+        try:
+            cpu = core.processore()
+            righe.append(f"Processore: {cpu.get('nome') if isinstance(cpu, dict) else cpu}")
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            import psutil
+            righe.append(f"RAM: {psutil.virtual_memory().total / 2 ** 30:.1f} GB")
+        except Exception:  # noqa: BLE001
+            pass
+        righe.append(f"Dolphin: {core.versione_exe_dolphin(exe) if exe else 'non trovato'}")
+        try:
+            giochi = self._tutti_giochi(dolphin) if dolphin else {}
+            righe.append("Versioni del gioco: " + (", ".join(f"{core.NOMI_VERSIONE.get(g, g)} ({Path(p).suffix})" for g, p in giochi.items()) or "nessuna"))
+            if dolphin:
+                righe.append("Mod per versione: " + json.dumps(core.mod_versioni(dolphin), ensure_ascii=False, default=str))
+        except Exception as e:  # noqa: BLE001
+            righe.append(f"Versioni del gioco: errore {e!r}")
+        try:
+            p = self._pad()
+            righe.append("Controller: " + (", ".join(f"{x['tipo']} {x['nome']} {x.get('vid', '')}:{x.get('pid', '')}" for x in p["tutti"]) or "nessuno")
+                         + f" (profilo: {p['esito']})" if p else "Controller: ?")
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            righe.append(f"Libreria: formato {json.loads((Path(self._libreria_predefinita()) / 'libreria.json').read_text(encoding='utf-8')).get('formato')}")
+        except (OSError, ValueError):
+            righe.append("Libreria: non installata")
+        righe.append(f"Scheda video per i DDS: {(core._TEXCONV_GPU[0]['gpu'] or 'nessuna (processore)') if core._TEXCONV_GPU else 'non provata'}")
+        righe.append(f"Programmi per rar/7z: {', '.join(e.name for e in core._estrattori()) or 'nessuno'}")
+        righe.append(f"Lingua: {self._conf.get('lingua') or core.lingua_sistema()}")
+        if errore:
+            righe += ["", "Errore mostrato:", str(errore)]
+        dest = core.cartella_download()
+        dest.mkdir(parents=True, exist_ok=True)
+        f = dest / f"SM2 Enhanced - segnalazione {datetime.now():%Y-%m-%d %H-%M}.zip"
+        with zipfile.ZipFile(f, "w", zipfile.ZIP_DEFLATED) as z:
+            z.writestr("info.txt", pulito("\n".join(righe)) + "\n")
+            for nome, quante in (("errori.log", 400), ("uscite.log", 200), ("crash.log", 200), ("menu.log", 200)):
+                log = core.CONF_DIR / nome
+                if log.is_file():
+                    coda = log.read_text(encoding="utf-8", errors="replace").splitlines()[-quante:]
+                    z.writestr(nome, pulito("\n".join(coda)) + "\n")
+        titolo = f"[{core.VERSIONE_APP}] " + (pulito(str(errore))[:80] if errore else "")
+        testo = (f"**What happened?**\n\n\n**What were you doing?**\n\n\n---\nSM2 Enhanced {core.VERSIONE_APP}, Windows {platform.release()}\n"
+                 f"Please drag the file `{f.name}` (in your Downloads folder) into this box.")
+        url = self.SEGNALA_URL + "?" + urllib.parse.urlencode({"title": titolo, "body": testo})
+        return {"file": str(f), "nome": f.name, "url": url}
+
+    @protetto
+    def segnala_mostra(self, file):
+        """Apre Esplora risorse con il file della segnalazione selezionato (solo i file fatti da segnala_prepara)."""
+        p = Path(file)
+        if p.parent == core.cartella_download() and p.name.startswith("SM2 Enhanced - segnalazione") and p.is_file():
+            avvia_esterno(["explorer", "/select,", str(p)])
         return True
 
     @protetto

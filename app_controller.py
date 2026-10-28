@@ -179,6 +179,50 @@ def scrivi(f, righe):
     f.write_text(testo, encoding="utf-8")
 
 
+def _segno(espr):
+    """'+' o '-' dell'asse in un'espressione del profilo (`Right Y+`, `Axis 1-`), None se non è un asse semplice."""
+    m = re.fullmatch(r"`?[^`|&!()]*?([+-])`?", (espr or "").strip())
+    return m.group(1) if m else None
+
+
+INVERTI = {"y": ("C-Stick/Up", "C-Stick/Down", "Main Stick/Up"), "x": ("C-Stick/Left", "C-Stick/Right", "Main Stick/Left")}
+
+
+def inversione(righe):
+    """Camera (levetta destra = C-Stick) invertita? {"y": bool, "x": bool}: invertita = il segno della levetta destra è
+    opposto a quello della sinistra nella stessa direzione (vale per XInput `Y+`, SDL e Android `Axis 1-`). None = non si
+    capisce (espressioni fatte a mano)."""
+    d = dict(righe)
+    out = {}
+    for asse, (a, _b, rif) in INVERTI.items():
+        c, s = _segno(d.get(a)), _segno(d.get(rif))
+        out[asse] = None if not c or not s else c != s
+    return out
+
+
+def inverti(righe, scelta):
+    """Righe del profilo con la camera invertita come in scelta {"y": bool, "x": bool} (scambia su/giù o sinistra/destra
+    della levetta destra solo se serve). Vale per tutte le camere, anche quella del gioco: il gioco legge la levetta così."""
+    d, ora, scambi = dict(righe), inversione(righe), {}
+    for asse, (a, b, _rif) in INVERTI.items():
+        if asse in (scelta or {}) and ora.get(asse) is not None and bool(scelta[asse]) != ora[asse] and a in d and b in d:
+            scambi[a], scambi[b] = d[b], d[a]
+    return [(k, scambi.get(k, v)) for k, v in righe], bool(scambi)
+
+
+def applica_inversione(dolphin, scelta):
+    """Mette nel profilo di Dolphin l'inversione della camera scelta nell'app (dopo Ripristina, profilo automatico, avvio)."""
+    if not dolphin or not scelta:
+        return False
+    f = file_profilo(dolphin)
+    if not f.is_file():
+        return False
+    righe, cambiato = inverti(leggi(f), scelta)
+    if cambiato:
+        scrivi(f, righe)
+    return cambiato
+
+
 def converti_backend(info, verso):
     """Da XInput a SDL o viceversa: stessi tasti per posizione (A<->S, B<->E, X<->W, Y<->N)."""
     da, a = (STANDARD_XINPUT, STANDARD_SDL) if verso == "sdl" else (STANDARD_SDL, STANDARD_XINPUT)
@@ -419,6 +463,7 @@ class PadWinmm:
         self._pad, self._quando = [], 0.0
         self.destro = (0.0, 0.0)  # stick destro (-1..1), letto insieme ai tasti: per girare/zoomare lo Spidey del menu
         self.sinistro = (0.0, 0.0)  # stick sinistro (-1..1, su = negativo): la mappa della città si muove fluida
+        self.dispositivi = []  # un pad per voce, tasti SENZA lo stick (pagina Controller dell'app: vedi LettorePad)
 
     def _cerca(self, con_xbox):
         """Quali joystick leggere (ogni 2 s: si possono collegare mentre giochi). Microsoft = già XInput."""
@@ -431,7 +476,7 @@ class PadWinmm:
                 continue
             info = self._JI(dwSize=self._ct.sizeof(self._JI), dwFlags=0xFF)
             if self._wm.joyGetPosEx(i, self._ct.byref(info)) == 0:
-                out.append((i, self.MAPPE.get(caps.wMid, self.GENERICA)))
+                out.append((i, self.MAPPE.get(caps.wMid, self.GENERICA), caps.wMid, caps.wPid, caps.szPname))
         self._pad = out
 
     def bottoni(self, con_xbox=False):
@@ -441,11 +486,12 @@ class PadWinmm:
         if time.time() - self._quando > 2:
             self._quando = time.time()
             self._cerca(con_xbox)
-        b, destro, sinistro = 0, (0.0, 0.0), (0.0, 0.0)
-        for i, mappa in self._pad:
+        b, destro, sinistro, disp = 0, (0.0, 0.0), (0.0, 0.0), []
+        for i, mappa, vid, pid, nome in self._pad:
             info = self._JI(dwSize=self._ct.sizeof(self._JI), dwFlags=0xFF)
             if self._wm.joyGetPosEx(i, self._ct.byref(info)) != 0:
                 continue
+            b_prima = b
             dx, dy = info.z / 32767.5 - 1, info.r / 32767.5 - 1  # stick destro: Z / Rz (PlayStation e quasi tutti)
             if (info.z or info.r) and abs(dx) + abs(dy) > abs(destro[0]) + abs(destro[1]):  # 0 e 0 = pad senza quegli assi
                 destro = (dx, dy)
@@ -459,9 +505,17 @@ class PadWinmm:
             pov = info.pov
             if pov != 0xFFFF and pov <= 36000:  # croce: centesimi di grado, 0 = su
                 b |= (0x0001 if pov >= 31500 or pov <= 4500 else 0) | (0x0008 if 4500 <= pov <= 13500 else 0) |                      (0x0002 if 13500 <= pov <= 22500 else 0) | (0x0004 if 22500 <= pov <= 31500 else 0)
+            tasti = 0  # questo pad da solo, senza lo stick (per la prova dei tasti)
+            for nome_t, n in mappa.items():
+                if info.b & (1 << n):
+                    tasti |= self.BIT[nome_t]
+            tasti |= (b & ~b_prima) & 0x000F
             if assi:
                 b |= (0x0001 if info.y < 12000 else 0) | (0x0002 if info.y > 53500 else 0) |                  (0x0004 if info.x < 12000 else 0) | (0x0008 if info.x > 53500 else 0)  # stick sinistro (0-65535)
-        self.destro, self.sinistro = destro, sinistro
+            disp.append({"id": f"w{i}", "vid": vid, "pid": pid, "nome": nome, "b": tasti,
+                         "sx": (info.x / 32767.5 - 1) if assi else 0.0, "sy": (info.y / 32767.5 - 1) if assi else 0.0,
+                         "dx": (info.z / 32767.5 - 1) if info.z or info.r else 0.0, "dy": (info.r / 32767.5 - 1) if info.z or info.r else 0.0})
+        self.destro, self.sinistro, self.dispositivi = destro, sinistro, disp
         return b
 
 
@@ -598,6 +652,7 @@ class PadHid:
         self._stato, self._fili, self._quando, self._lock = {}, {}, 0.0, threading.Lock()
         self._destro = {}  # stick destro per pad (-1..1)
         self._sinistro = {}  # stick sinistro per pad (-1..1)
+        self._tasti, self._info = {}, {}  # per pad: tasti senza lo stick e {vid, pid, nome} (pagina Controller)
 
     def _leggi(self, info, mappa):
         """Filo di un pad: legge i report finché il pad c'è (ReadFile bloccante, condiviso con Dolphin e Windows)."""
@@ -643,13 +698,13 @@ class PadHid:
                     if 0 <= d <= 7:
                         b |= (0x0001 if d in (7, 0, 1) else 0) | (0x0008 if d in (1, 2, 3) else 0) | \
                              (0x0002 if d in (3, 4, 5) else 0) | (0x0004 if d in (5, 6, 7) else 0)
-                sin = [0.0, 0.0]
+                sin, bs = [0.0, 0.0], 0
                 for k, (u, (meno, piu)) in enumerate(((0x30, (0x0004, 0x0008)), (0x31, (0x0001, 0x0002)))):  # stick sinistro X / Y
                     if u in lim and hid.HidP_GetUsageValue(0, 1, 0, u, ctypes.byref(val), pp, buf, letti.value) == HIDP_OK:
                         lo, hi = lim[u]
                         x = (val.value - lo) / max(1, hi - lo)
                         sin[k] = 2 * x - 1
-                        b |= meno if x < 0.2 else piu if x > 0.8 else 0
+                        bs |= meno if x < 0.2 else piu if x > 0.8 else 0
                 self._sinistro[info["path"]] = tuple(sin)
                 if 0x32 in lim and 0x35 in lim:  # stick destro (Z / Rz): per girare/zoomare lo Spidey del menu
                     xy = []
@@ -663,7 +718,8 @@ class PadHid:
                             (val.value - lo) / max(1, hi - lo) > 0.55:
                         b |= bit
                 with self._lock:
-                    self._stato[info["path"]] = b
+                    self._stato[info["path"]] = b | bs
+                    self._tasti[info["path"]] = b
         except Exception:  # noqa: BLE001 - un pad che sparisce non deve fermare niente
             pass
         finally:
@@ -678,6 +734,8 @@ class PadHid:
                 self._stato.pop(info["path"], None)
                 self._destro.pop(info["path"], None)
                 self._sinistro.pop(info["path"], None)
+                self._tasti.pop(info["path"], None)
+                self._info.pop(info["path"], None)
             self._fili.pop(info["path"], None)
 
     def bottoni(self, con_xbox=False, salta=(0x054C, 0x057E)):
@@ -690,6 +748,8 @@ class PadHid:
                 if p["vid"] in salta or (con_xbox and p["vid"] not in PadWinmm.MAPPE) or p["path"] in self._fili:
                     continue
                 self._fili[p["path"]] = True
+                with self._lock:
+                    self._info[p["path"]] = {"vid": p["vid"], "pid": p["pid"], "nome": p["nome"]}
                 mappa = HID_MAPPE.get(p["vid"]) or PadWinmm.MAPPE.get(p["vid"], PadWinmm.GENERICA)
                 threading.Thread(target=self._leggi, args=(p, mappa), daemon=True).start()
         with self._lock:
@@ -697,6 +757,17 @@ class PadHid:
             for v in self._stato.values():
                 b |= v
             return b
+
+    @property
+    def dispositivi(self):
+        """Un pad per voce come PadWinmm.dispositivi (solo quelli che hanno già mandato un report)."""
+        with self._lock:
+            out = []
+            for k, b in self._tasti.items():
+                i, sx, dx = self._info.get(k, {}), self._sinistro.get(k, (0.0, 0.0)), self._destro.get(k, (0.0, 0.0))
+                out.append({"id": "h" + k[-12:], "vid": i.get("vid"), "pid": i.get("pid"), "nome": i.get("nome") or "Controller",
+                            "b": b, "sx": sx[0], "sy": sx[1], "dx": dx[0], "dy": dx[1]})
+            return out
 
     @property
     def destro(self):
@@ -707,3 +778,91 @@ class PadHid:
     def sinistro(self):
         with self._lock:
             return max(self._sinistro.values(), key=lambda v: abs(v[0]) + abs(v[1]), default=(0.0, 0.0))
+
+
+# ---------------------------------------------------------------- tutti i pad per l'app (pagina Controller, navigazione)
+# Nomi dei pad Xbox dal prodotto (XInputGetCapabilitiesEx): il browser dell'app chiama "Xbox 360 Controller" qualsiasi pad
+# XInput (anche un Series X) e a volte "Unknown Gamepad" con i tasti in un altro ordine.
+NOMI_XBOX = {0x028E: "Xbox 360", 0x028F: "Xbox 360", 0x0291: "Xbox 360", 0x0719: "Xbox 360",
+             0x02D1: "Xbox One", 0x02DD: "Xbox One", 0x02EA: "Xbox One", 0x02E0: "Xbox One", 0x02FD: "Xbox One", 0x0B20: "Xbox One",
+             0x02E3: "Xbox Elite", 0x0B00: "Xbox Elite 2", 0x0B05: "Xbox Elite 2", 0x0B22: "Xbox Elite 2",
+             0x0B12: "Xbox Series X|S", 0x0B13: "Xbox Series X|S", 0x0B0A: "Xbox Adaptive"}
+
+
+def tipo_da_vid(vid):
+    return "xbox" if vid == 0x045E else "ps" if vid == 0x054C else "switch" if vid == 0x057E else "altro"
+
+
+class LettorePad:
+    """Tutti i pad collegati come li legge il menu in gioco (XInput + PadWinmm + PadHid: tasti già nell'ordine di un pad
+    Xbox, per marca), uno per voce, e quale è stato toccato per ultimo (con due pad l'app segue quello che usi)."""
+
+    def __init__(self):
+        import ctypes
+        self._ct = ctypes
+        try:
+            self._xi = ctypes.windll.xinput1_4
+        except OSError:
+            self._xi = None
+        self._ex = None
+        try:
+            self._ex = self._xi[108] if self._xi else None  # XInputGetCapabilitiesEx (senza nome: solo per numero)
+        except (AttributeError, OSError):
+            self._ex = None
+        self.ps, self.hid = PadWinmm(), PadHid()
+        self._nomi, self._prima, self.attivo = {}, {}, None
+
+    def _nome_xinput(self, i):
+        if i in self._nomi:
+            return self._nomi[i]
+        nome, vid, pid = "Xbox", 0x045E, None
+        if self._ex:
+            buf = self._ct.create_string_buffer(64)
+            try:
+                if self._ex(1, i, 0, buf) == 0:
+                    vid, pid = int.from_bytes(buf.raw[20:22], "little"), int.from_bytes(buf.raw[22:24], "little")
+                    nome = NOMI_XBOX.get(pid, "Xbox") if vid == 0x045E else "XInput"
+            except (OSError, ValueError):
+                pass
+        self._nomi[i] = (nome, vid, pid)
+        return self._nomi[i]
+
+    def leggi(self):
+        """-> {"pad": [{id, tipo, nome, b, sx, sy, dx, dy}], "attivo": id}. b = bit XInput (A 0x1000, B 0x2000, X 0x4000,
+        Y 0x8000, LB 0x100, RB 0x200, LT 0x10000, RT 0x20000, View 0x20, Menu 0x10, L3 0x40, R3 0x80, croce 1/2/4/8)
+        SENZA lo stick; levette -1..1 (su = negativo)."""
+        ct, out = self._ct, []
+
+        class ST(ct.Structure):
+            _fields_ = [("pkt", ct.c_uint32), ("b", ct.c_uint16), ("lt", ct.c_ubyte), ("rt", ct.c_ubyte),
+                        ("lx", ct.c_short), ("ly", ct.c_short), ("rx", ct.c_short), ("ry", ct.c_short)]
+        for i in range(4) if self._xi else ():
+            st = ST()
+            if self._xi.XInputGetState(i, ct.byref(st)) != 0:
+                self._nomi.pop(i, None)  # scollegato: al prossimo collegamento rileggo il nome (può essere un altro pad)
+                continue
+            nome, vid, pid = self._nome_xinput(i)
+            b = st.b | (0x10000 if st.lt > 140 else 0) | (0x20000 if st.rt > 140 else 0)
+            out.append({"id": f"x{i}", "tipo": "xbox", "nome": nome, "b": b, "sx": st.lx / 32768, "sy": -st.ly / 32768,
+                        "dx": st.rx / 32768, "dy": -st.ry / 32768})
+        con_xbox = bool(out)
+        try:
+            self.ps.bottoni(con_xbox=con_xbox)
+            self.hid.bottoni(con_xbox=con_xbox)
+            for d in self.ps.dispositivi + self.hid.dispositivi:
+                d = dict(d, tipo=tipo_da_vid(d.get("vid")))
+                if d["tipo"] == "xbox":
+                    continue  # già letto con XInput
+                if d["tipo"] == "ps":
+                    d["nome"] = "DualSense" if d.get("pid") in (0x0CE6, 0x0DF2) else "DualShock 4" if d.get("pid") in (0x09CC, 0x05C4) else d["nome"]
+                out.append(d)
+        except Exception:  # noqa: BLE001 - un pad strano non deve fermare gli altri
+            pass
+        for d in out:  # toccato adesso = tasto cambiato o levetta oltre metà corsa
+            mosso = max(abs(d["sx"]), abs(d["sy"]), abs(d["dx"]), abs(d["dy"])) > 0.5
+            if (d["b"] != self._prima.get(d["id"], (0, False))[0] and d["b"]) or (mosso and not self._prima.get(d["id"], (0, False))[1]):
+                self.attivo = d["id"]
+            self._prima[d["id"]] = (d["b"], mosso)
+        if out and self.attivo not in {d["id"] for d in out}:
+            self.attivo = out[0]["id"]
+        return {"pad": out, "attivo": self.attivo if out else None}

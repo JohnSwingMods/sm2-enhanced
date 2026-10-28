@@ -56,7 +56,7 @@ function ctStatoPad() {  // il profilo va bene per il pad collegato? (lo decide 
   if (e === "sdl") return { tipo: "rosso", k: pad.fam === "ps" || pad.fam === "switch" ? "ct_st_" + pad.fam : "ct_st_altro_sdl", azione: "auto" };
   if (e === "xinput") return { tipo: "giallo", k: "ct_st_xbox_sdl", azione: "auto" };
   if (e === "altro") return { tipo: "giallo", k: "ct_st_altro", azione: "auto" };
-  if (pad.mapping !== "standard") return { tipo: "giallo", k: "ct_st_strano" };
+  if (pad.browser && pad.mapping !== "standard") return { tipo: "giallo", k: "ct_st_strano" };  // solo letto dal browser (Python non lo vede)
   if (pad.fam === "xbox") return p.backend === "xinput" ? { tipo: "ok", k: "ct_st_ok" } : { tipo: "giallo", k: "ct_st_xbox_sdl", azione: "xinput" };
   if (pad.fam === "ps" || pad.fam === "switch") return p.backend === "sdl" ? { tipo: "ok", k: "ct_st_ok_sdl" } : { tipo: "rosso", k: "ct_st_" + pad.fam, azione: "sdl" };
   return { tipo: "giallo", k: "ct_st_altro" };
@@ -83,10 +83,10 @@ function disegnaPad() {
       <div><h3>${t("ct_nessuno")}</h3><p class="ct-sub">${t("ct_nessuno_sub")}</p></div></div>`;
     return;
   }
-  const st = ctStatoPad(), famNome = { xbox: "Xbox / XInput", ps: "PlayStation", switch: "Nintendo Switch", altro: t("ct_generico") }[pad.fam];
+  const st = ctStatoPad(), famNome = { xbox: "Xbox / XInput", ps: "PlayStation", switch: "Nintendo Switch", altro: t("ct_generico") }[pad.fam] || t("ct_generico");
   const bottone = st && st.azione ? `<button class="primario" id="ct-cambia-profilo">${t(st.azione === "auto" ? "ct_auto" : st.azione === "sdl" ? "ct_usa_sdl" : "ct_usa_xinput")}</button>` : "";
   box.innerHTML = `<div class="ct-pad-testa"><div class="ct-pad-icona ${pad.fam}"><svg><use href="#${pad.fam === "xbox" ? "i-xbox" : "i-hud"}"/></svg></div>
-      <div><h3>${nomePad(pad.id)}</h3><p class="ct-sub">${famNome}${X.altri > 0 ? " · " + t("ct_altri", X.altri) : ""}</p></div></div>
+      <div><h3>${pad.nome || nomePad(pad.id)}</h3><p class="ct-sub">${famNome}${X.altri > 0 ? " · " + t("ct_altri", X.altri) : ""}</p></div></div>
     ${st ? `<div class="ct-stato ${st.tipo}"><svg><use href="#${st.tipo === "ok" ? "i-ok" : "i-ingr"}"/></svg><span>${t(st.k)}</span></div>` : ""}
     ${bottone ? `<div class="ct-azioni">${bottone}</div>` : ""}
     ${st && st.azione ? `<p class="nota">${t("ct_auto_nota")}</p>` : ""}`;
@@ -144,6 +144,16 @@ function disegnaController() {
     const tg = r.querySelector("[data-azione=togli]");
     if (tg) tg.onclick = () => ctAssegna({ dove, k }, null);
   });
+  for (const a of ["y", "x"]) {  // camera invertita: nel profilo del pad, vale per tutte le camere
+    const c = $("#ct-inv-" + a);
+    c.checked = !!(X.dati.inverti && X.dati.inverti[a]);
+    c.onchange = async () => {
+      const r = await api().controller_inverti(a, c.checked);
+      if (!r || r.errore) { c.checked = !c.checked; toast(t("errore"), r && r.errore === "dolphin" ? t("err_dolphin") : (r && r.errore) || "", "errore"); return; }
+      X.dati = r;
+      toast(t("ct_salvato"), r.dolphin_aperto ? t("ct_dal_prossimo") : "", "", 2200);
+    };
+  }
   $("#ct-ripristina").onclick = async () => {
     const r = await modale({ titolo: t("ct_ripristina"), testo: t("ct_ripristina_testo"), bottoni: [["no", t("annulla")], ["si", t("ct_ripristina"), true]] });
     if (r !== "si") return;
@@ -201,23 +211,25 @@ function disegnaProva() {  // tutti i tasti del pad: si accendono quando li prem
   };
   box.innerHTML = `<div class="ct-stick"><i id="ct-sx"><b></b></i><span>${t("ct_stick_sx")}</span></div>` +
     `<div class="ct-stick"><i id="ct-dx"><b></b></i><span>${t("ct_stick_dx")}</span></div>` +
-    nomi.map((n, i) => `<div class="ct-prova-t" data-i="${i}"><kbd>${etich(n)}</kbd><small>${fa(n) || "—"}</small></div>`).join("");
+    nomi.map((n, i) => `<div class="ct-prova-t" data-i="${i}"><kbd>${etich(n)}</kbd><small>${fa(n) || "—"}</small></div>`).join("") +
+    `<p class="nota ct-prova-esci">${t("ct_prova_esci", etich("Button B"))}</p>`;
 }
 function ctPad() {  // ogni fotogramma: pad collegato, tasti premuti, ascolto per "Cambia"
   requestAnimationFrame(ctPad);
   if (S.pagina !== "controller" || (window.giocoAperto && !document.hasFocus())) return;
-  const tutti = [...(navigator.getGamepads ? navigator.getGamepads() : [])].filter(x => x && x.connected);
-  const g = tutti[0] || null;
-  const firma = g ? g.id + "|" + g.mapping + "|" + tutti.length : "";
+  // pad letti da Python (padLetti in pad.js): con più pad collegati vale quello che hai toccato per ultimo
+  const letti = padLetti(), g = letti && letti.attivo;
+  const firma = g ? g.id + "|" + g.nome + "|" + letti.tutti.length : "";
   if (firma !== X.firmaPad) {
     X.firmaPad = firma;
-    X.pad = g ? { id: g.id, mapping: g.mapping, ...famigliaPad(g.id) } : null;
-    X.altri = Math.max(0, tutti.length - 1);
+    X.pad = g ? { id: g.id, nome: g.nome, mapping: g.browser ? g.mapping : "standard", fam: g.fam, browser: !!g.browser } : null;
+    X.altri = g ? letti.tutti.length - 1 : 0;
     if (X.ascolto && !g) X.ascolto = null;
+    X.prima = g ? g.b.slice() : [];  // pad cambiato: i tasti già premuti non contano come pressioni nuove
     disegnaController();
   }
   if (!g) return;
-  const ora = g.buttons.map(b => b.pressed || b.value > 0.5);
+  const ora = g.b;
   ora.forEach((on, i) => { const el = document.querySelector(`.ct-prova-t[data-i="${i}"]`); if (el) el.classList.toggle("on", on); });
   const stick = (id, x, y) => { const b = document.querySelector(`#${id} b`); if (b) b.style.transform = `translate(${x * 14}px, ${y * 14}px)`; };
   stick("ct-sx", g.axes[0] || 0, g.axes[1] || 0); stick("ct-dx", g.axes[2] || 0, g.axes[3] || 0);

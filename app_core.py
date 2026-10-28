@@ -18,7 +18,7 @@ from pathlib import Path
 import psutil
 from PIL import Image
 
-VERSIONE_APP = "1.1"
+VERSIONE_APP = "1.2"
 # PROVA DA ZERO (--da-zero): l'app vive in una cartella tutta sua e non vede il Dolphin, la libreria, gli zip e le
 # impostazioni veri, come su un PC dove non c'è niente. Serve a provare l'esperienza di chi parte da zero.
 DA_ZERO = "--da-zero" in sys.argv
@@ -2072,13 +2072,17 @@ DEST_AGGIUNTE = {  # tipo -> cartella del pack dove finisce
 }
 
 
+def _estrattori():
+    """Programmi per rar/7z presenti sul PC, in ordine di preferenza."""
+    return [Path(p) for p in (r"C:\Program Files\7-Zip\7z.exe", r"C:\Program Files (x86)\7-Zip\7z.exe",
+                              r"C:\Program Files\WinRAR\UnRAR.exe", r"C:\Program Files (x86)\WinRAR\UnRAR.exe",
+                              os.path.join(os.environ.get("SystemRoot", r"C:\Windows"), "System32", "tar.exe"))  # Windows 10/11: apre anche rar e 7z
+            if Path(p).is_file()]
+
+
 def _estrattore():
-    for p in (r"C:\Program Files\7-Zip\7z.exe", r"C:\Program Files (x86)\7-Zip\7z.exe",
-              r"C:\Program Files\WinRAR\UnRAR.exe", r"C:\Program Files (x86)\WinRAR\UnRAR.exe",
-              os.path.join(os.environ.get("SystemRoot", r"C:\Windows"), "System32", "tar.exe")):  # Windows 10/11: apre anche rar e 7z
-        if Path(p).is_file():
-            return Path(p)
-    return None
+    e = _estrattori()
+    return e[0] if e else None
 
 
 def _args_estrai(exe, archivio, dest):
@@ -2306,7 +2310,7 @@ class Compressione:
             d.mkdir(parents=True, exist_ok=True)
             elenco = d / "lista.txt"
             elenco.write_text("\n".join(str(copie[0][0] / copie[0][1]) for _, copie in blocco), encoding="utf-8")
-            subprocess.run([str(exe), "-nologo", "-y", "-f", "BC7_UNORM", "-m", "0", *TEXCONV_EXTRA, "-o", str(d), "-flist", str(elenco)],
+            subprocess.run([str(exe), "-nologo", "-y", "-f", "BC7_UNORM", "-m", "0", *texconv_args(), "-o", str(d), "-flist", str(elenco)],
                            capture_output=True, creationflags=0x08000000, env=ambiente_figli())
             for md5, copie in blocco:
                 if self.annulla:
@@ -2381,6 +2385,49 @@ class Compressione:
 # Prove (80 texture, scheda video): normale 13 s, "-bc q" 2,9 s; qualità media 47 contro 45 dB (sopra 40 = invisibile).
 TEXCONV_EXTRA = ["-bc", "q", "--ignore-srgb"]  # ignore-srgb: senza, i PNG con gamma/sRGB diventano scurissimi
 TEXCONV_PROCESSI = 3
+_TEXCONV_GPU = []  # [risultato di texconv_gpu()], calcolato una volta per avvio dell'app
+
+
+def texconv_gpu():
+    """Quale scheda video usa texconv per il BC7: {"args": [...], "gpu": nome o None, "s": secondi della prova}.
+    Misurato (150 texture, i7-8750H): scheda video 4,6 s, solo processore 61 s (12 volte di più). Se la scheda 0 non va
+    texconv ripiega da solo sul processore, e su alcuni PC la 0 è la "Microsoft Basic Render" (software, 4 volte più lenta
+    di una vera): provo le schede 0-3 su una texture piccola e tengo la più veloce; nessuna = processore (gpu None)."""
+    if _TEXCONV_GPU:
+        return _TEXCONV_GPU[0]
+    import subprocess
+    import tempfile
+    import time
+    meglio = {"args": ["-nogpu"], "gpu": None, "s": None}
+    exe = texconv()
+    if exe:
+        with tempfile.TemporaryDirectory() as d:
+            img = Path(d) / "prova.png"
+            im = Image.new("RGBA", (512, 512))
+            im.putdata([(x % 251, (x * 7) % 253, (x * 13) % 255, 255 - x % 200) for x in range(512 * 512)])
+            im.save(img)
+            for n in range(4):
+                t = time.time()
+                try:
+                    r = subprocess.run([str(exe), "-nologo", "-y", "-f", "BC7_UNORM", "-m", "0", *TEXCONV_EXTRA, "-gpu", str(n),
+                                        "-o", d, str(img)], capture_output=True, text=True, timeout=30,
+                                       creationflags=0x08000000, env=ambiente_figli())
+                except (OSError, subprocess.SubprocessError):
+                    continue
+                s = time.time() - t
+                m = re.search(r'DirectCompute[^"]*"([^"]+)"', r.stdout or "")
+                if not m or "basic render" in m.group(1).lower() or not (Path(d) / "prova.dds").is_file():
+                    continue  # quella scheda non c'è / è il software di Windows / non ha convertito
+                if meglio["s"] is None or s < meglio["s"]:
+                    meglio = {"args": ["-gpu", str(n)], "gpu": m.group(1), "s": round(s, 2)}
+                (Path(d) / "prova.dds").unlink()
+    _TEXCONV_GPU.append(meglio)
+    return meglio
+
+
+def texconv_args():
+    """Opzioni di texconv per il BC7 su questo PC (qualità rapida + scheda video più veloce, se c'è)."""
+    return TEXCONV_EXTRA + texconv_gpu()["args"]
 _BLOCCO_MAN = __import__("threading").RLock()  # rientrante: salva_manifesto lo prende anche se il chiamante lo ha già
 
 
@@ -2488,24 +2535,40 @@ def _estrai(archivio, dest, avanza=None, ferma=None):
                 if avanza:
                     avanza(fatto / tot)
         return
-    exe = _estrattore()
-    if not exe:
+    exes = _estrattori()
+    if not exes:
         raise RuntimeError("estrattore")
     import subprocess
+    import tempfile
     import time
-    pr = subprocess.Popen(_args_estrai(exe, archivio, dest), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                          creationflags=0x08000000, env=ambiente_figli())
     peso = max(1, archivio.stat().st_size)
-    while pr.poll() is None:  # rar/7z: quanto è già uscito rispetto al peso dell'archivio (le texture si comprimono poco)
-        time.sleep(0.7)
-        if ferma and ferma():
-            pr.kill()
-            return
-        if avanza:
-            uscito = sum(f.stat().st_size for f in Path(lungo(dest)).rglob("*") if f.is_file())
-            avanza(min(0.97, uscito / peso))
-    if pr.returncode:
-        raise subprocess.CalledProcessError(pr.returncode, "estrazione")
+    errori = []
+    # se uno fallisce si prova il successivo: i rar di ModDB sono RAR5 e un 7-Zip vecchio (prima del 2015) non li apre
+    # (un utente: "CalledProcessError ... exit status 2"); il tar di Windows sì
+    for exe in exes:
+        if errori and Path(lungo(dest)).is_dir():  # via i pezzi lasciati dal tentativo prima
+            for x in Path(lungo(dest)).iterdir():
+                _rimuovi(x)
+        with tempfile.TemporaryFile() as err:
+            pr = subprocess.Popen(_args_estrai(exe, archivio, dest), stdout=subprocess.DEVNULL, stderr=err,
+                                  creationflags=0x08000000, env=ambiente_figli())
+            while pr.poll() is None:  # rar/7z: quanto è già uscito rispetto al peso dell'archivio (le texture si comprimono poco)
+                time.sleep(0.7)
+                if ferma and ferma():
+                    pr.kill()
+                    return
+                if avanza:
+                    uscito = sum(f.stat().st_size for f in Path(lungo(dest)).rglob("*") if f.is_file())
+                    avanza(min(0.97, uscito / peso))
+            if not pr.returncode:
+                if errori:
+                    log_errore(f"estrazione di {archivio.name}: riuscita con {exe.name} dopo {'; '.join(errori)}")
+                return
+            err.seek(0)
+            testo = " ".join(err.read()[-400:].decode("utf-8", "replace").split())
+            errori.append(f"{exe.name} codice {pr.returncode}: {testo}")
+    log_errore(f"estrazione di {archivio.name} fallita: {' | '.join(errori)}")
+    raise RuntimeError(f"estrazione di {archivio.name} fallita ({' | '.join(errori)[:300]})")
 
 
 def _copia_texture(src, dest, avanza=None):
@@ -2756,7 +2819,7 @@ class Libreria:
                 except OSError:
                     shutil.copyfile(copie[0], corta)
             elenco.write_text("\n".join(corto(entra / f"{j}.png") for j in range(len(blocco))), encoding="utf-8")
-            subprocess.run([str(exe), "-nologo", "-y", "-f", "BC7_UNORM", "-m", "0", *TEXCONV_EXTRA, "-o", corto(esce),
+            subprocess.run([str(exe), "-nologo", "-y", "-f", "BC7_UNORM", "-m", "0", *texconv_args(), "-o", corto(esce),
                             "-flist", corto(elenco)], capture_output=True, creationflags=0x08000000, env=ambiente_figli())
             if True:
                 for j, copie in enumerate(blocco):

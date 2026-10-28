@@ -3,7 +3,44 @@
 // prima / dopo, levetta destra = gira e avvicina lo Spidey 3D (o scorre la pagina). Nella pagina Skin anche LT / RT
 // (principale / alternativo / ragnatele), X (ordine), Y (preferito) e R3 (ferma Spidey), come nel menu in gioco.
 // Il riquadro bianco compare solo quando usi il pad; muovendo il mouse sparisce.
-const PN = { el: null, attivo: false, prima: [], prossimo: {}, rip: {} };
+const PN = { el: null, attivo: false, prima: [], prossimo: {}, rip: {}, bDa: 0 };
+
+// I pad li legge Python (api pad_leggi, ~30 volte al secondo): tasti già nell'ordine di un pad Xbox per ogni marca, nome
+// vero e quale hai toccato per ultimo. Il Gamepad del browser chiamava "Xbox 360 Controller" anche un Series X, a volte
+// "Unknown Gamepad" con i tasti in un altro ordine (la navigazione impazziva), e con due pad guardava solo il primo.
+// Se Python non risponde (o non vede pad) si ripiega sul browser.
+const PADPY = { stato: null, volo: false, quando: 0 };
+const PADPY_BIT = [0x1000, 0x2000, 0x4000, 0x8000, 0x100, 0x200, 0x10000, 0x20000, 0x20, 0x10, 0x40, 0x80, 1, 2, 4, 8];  // ordine "standard" del browser
+setInterval(() => {
+  if (PADPY.volo || typeof api !== "function" || !window.pywebview || !api().pad_leggi) return;
+  const serve = document.hasFocus() || window.PN_PROVA || (typeof S !== "undefined" && S.pagina === "controller" && !window.giocoAperto);
+  if (!serve) return;
+  PADPY.volo = true;
+  api().pad_leggi().then(r => { PADPY.stato = r; PADPY.quando = performance.now(); }).catch(() => {}).finally(() => { PADPY.volo = false; });
+}, 33);
+function padDaPy(p) { return { id: p.id, nome: p.nome, fam: p.tipo, b: PADPY_BIT.map(m => !!(p.b & m)), axes: [p.sx, p.sy, p.dx, p.dy] }; }
+function padDaBrowser(g) {
+  const f = typeof famigliaPad === "function" ? famigliaPad(g.id) : { fam: "altro" };
+  return { id: g.id, nome: typeof nomePad === "function" ? nomePad(g.id) : g.id, fam: f.fam, b: g.buttons.map(x => x.pressed || x.value > 0.5), axes: [...g.axes], browser: true, mapping: g.mapping };
+}
+function padLetti() {  // -> {tutti: [pad], attivo: pad, unione: {b, axes}} (attivo = l'ultimo toccato) o null senza pad
+  let tutti = [], attivo = null;
+  const st = PADPY.stato;
+  if (st && st.pad && st.pad.length && performance.now() - PADPY.quando < 600) {
+    tutti = st.pad.map(padDaPy);
+    attivo = tutti.find(p => p.id === st.attivo) || tutti[0];
+  } else {
+    tutti = [...(navigator.getGamepads ? navigator.getGamepads() : [])].filter(x => x && x.connected).map(padDaBrowser);
+    attivo = tutti.find(p => p.mapping === "standard") || tutti[0] || null;
+  }
+  if (!tutti.length) return null;
+  const b = [], axes = [0, 0, 0, 0];  // navigazione: va bene qualsiasi pad (OR dei tasti, levetta più spinta)
+  for (const p of tutti) {
+    p.b.forEach((on, i) => { b[i] = b[i] || on; });
+    for (const k of [0, 2]) if (Math.abs(p.axes[k] || 0) + Math.abs(p.axes[k + 1] || 0) > Math.abs(axes[k]) + Math.abs(axes[k + 1])) { axes[k] = p.axes[k] || 0; axes[k + 1] = p.axes[k + 1] || 0; }
+  }
+  return { tutti, attivo, unione: { b, axes } };
+}
 const PN_TASTI = { 0: "a", 1: "b", 2: "x", 3: "y", 4: "lb", 5: "rb", 6: "lt", 7: "rt", 8: "view", 9: "start", 10: "l3", 11: "r3", 12: "su", 13: "giu", 14: "sx", 15: "dx" };
 // finestrelle, dalla più in alto (z-index): prima i crediti mancavano e il riquadro andava sul launcher sotto (A due volte =
 // gioco avviato dietro la finestrella)
@@ -70,8 +107,6 @@ function pnMuovi(dir) {
 function pnPremi(k, rip) {
   if (typeof applicando === "function" && applicando()) return;  // sta applicando: la pagina è bloccata anche per il pad
   if (PN.pagina !== S.pagina) { PN.pagina = S.pagina; PN.mosso = false; pnMetti(null); }
-  // pagina Controller: lì i tasti si provano ("Prova i tasti"), quindi A & co. cliccano solo dopo esserti spostato con la croce
-  if (S.pagina === "controller" && !PN.mosso && pnRadice() === document.body && !["su", "giu", "sx", "dx", "lb", "rb", "b"].includes(k)) return;
   // pagine con comandi loro (Skin: slot, ordine, preferito, ferma)
   if (S.pagina === "skin" && pnRadice() === document.body && pnSkin(k)) return;
   const e = PN.el && document.contains(PN.el) && pnVisibile(PN.el) ? PN.el : null;
@@ -153,9 +188,19 @@ function pnStick(x, y) {  // levetta destra: lo Spidey 3D della pagina (Skin o l
 function pnGiro() {
   requestAnimationFrame(pnGiro);
   if ((!document.hasFocus() && !window.PN_PROVA) || (typeof X !== "undefined" && X.ascolto)) return;  // pagina Controller in ascolto di un tasto: niente
-  const g = [...(navigator.getGamepads ? navigator.getGamepads() : [])].find(x => x && x.connected);
-  if (!g) return;
-  const ora = performance.now(), b = g.buttons.map(x => x.pressed);
+  const letti = padLetti();
+  if (!letti) return;
+  const g = letti.unione;
+  const ora = performance.now(), b = g.b.slice();
+  // pagina Controller: lì i tasti si PROVANO, quindi il pad non muove l'app (prima LB/RB cambiavano pagina e B tornava
+  // al launcher mentre provavi). Per uscire: B tenuto 1 secondo. Le finestrelle aperte lì si comandano normalmente.
+  if (S.pagina === "controller" && pnRadice() === document.body) {
+    if (b[1] && !PN.prima[1]) PN.bDa = ora;
+    if (b[1] && PN.bDa && ora - PN.bDa > 1000) { PN.bDa = 0; vaiA("gioca"); }
+    if (!b[1]) PN.bDa = 0;
+    PN.prima = b;
+    return;
+  }
   const ax = g.axes[0] || 0, ay = g.axes[1] || 0;
   b[12] = b[12] || ay < -0.6; b[13] = b[13] || ay > 0.6; b[14] = b[14] || ax < -0.6; b[15] = b[15] || ax > 0.6;  // levetta = croce
   for (const [i, k] of Object.entries(PN_TASTI)) {

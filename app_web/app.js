@@ -1530,8 +1530,26 @@ function toast(titolo, testo, tipo = "", ms = 4500) {
   const e = $("#toast");
   e.className = "visibile " + tipo;
   e.innerHTML = `<b>${titolo}</b>${testo}`;
+  if (tipo === "errore") {  // da un errore si può segnalarlo subito (il messaggio va nel file della segnalazione)
+    const d = document.createElement("div"); d.innerHTML = testo || "";
+    const tx = titolo + (d.textContent ? ": " + d.textContent : "");
+    e.insertAdjacentHTML("beforeend", `<button class="leggero mini" id="toast-segnala">${t("seg_btn")}</button>`);
+    $("#toast-segnala").onclick = () => { e.className = tipo; segnalaProblema(tx); };
+    ms = Math.max(ms, 8000);
+  }
   clearTimeout(tmToast);
   tmToast = setTimeout(() => e.className = tipo, ms);
+}
+async function segnalaProblema(errore = null) {  // file con versioni e registri (senza dati personali) + pagina GitHub
+  const r = await api().segnala_prepara(errore);
+  if (!r || r.errore) { toast(t("errore"), r ? errTesto(r.errore) : ""); return; }
+  for (;;) {
+    const b = await modale({ titolo: t("seg_tit"), testo: t("seg_pronto", r.nome),
+      bottoni: [["file", t("seg_mostra")], [null, t("chiudi")], ["github", t("seg_github"), true]] });
+    if (b === "github") { api().apri_link(r.url); return; }
+    if (b === "file") { api().segnala_mostra(r.file); continue; }
+    return;
+  }
 }
 function fumetti() {
   const tip = $("#tip");
@@ -2229,6 +2247,7 @@ async function giocaVia(slot = null) {
   Q.parte = true; disegnaGioca();
   const r = await api().gioca_avvia(Q.sel, d.solo, d.intero, slot);
   if (r && r.pad_auto) toast(t("ct_auto_ok", String(r.pad_auto).split("/").pop()), t("ct_auto_avvio"), "", 5000);
+  if (r && r.tasti_auto) { toast(t("tasti_auto_ok"), t("tasti_auto_sub", r.tasti_auto), "", 6000); H.dati = null; }
   if (!r || r.errore) {
     Q.parte = false; disegnaGioca();
     toast(t("errore"), r ? t(r.errore, (r.disco || "")) : "", "errore", 6000); return;
@@ -2386,6 +2405,10 @@ async function caricaInstaller() {
   I.archivi = null; disegnaInstaller();
   I.archivi = await api().installer_archivi() || {};
   disegnaInstaller();
+  if (I.gpu === undefined) {  // scheda video per i DDS (senza: conversione ~12 volte più lenta) -> avviso al passo 3
+    I.gpu = null;
+    api().installer_gpu().then(g => { I.gpu = g || null; if (S.pagina === "installa" && g && !g.gpu) disegnaInstaller(); });
+  }
 }
 const insInstallato = (c, d = I.dati) => !!(d.installati[c.id] && d.installati[c.id].md5 === c.md5);
 function insStato(c) {  // installato (e non rispuntato) | scarico | pronto | rifai (installato e rispuntato) | trovato (zip c'è, non spuntato) | manca
@@ -2468,7 +2491,8 @@ function disegnaInstaller() {
   h += `<div class="ins-passo"><div class="ins-num">3</div><div class="ins-corpo"><h3>${t("ins_p3")}</h3>
     <div class="ins-opz"><b>${t("ins_formato")}</b><div class="ins-formati">
       <button data-formato="dds" class="${I.opz.formato === "dds" ? "attivo" : ""}"><b>${t("ins_dds")}</b><small>${t("ins_dds_sub")}</small></button>
-      <button data-formato="png" class="${I.opz.formato === "png" ? "attivo" : ""}"><b>${t("ins_png")}</b><small>${t("ins_png_sub")}</small></button></div></div>
+      <button data-formato="png" class="${I.opz.formato === "png" ? "attivo" : ""}"><b>${t("ins_png")}</b><small>${t("ins_png_sub")}</small></button></div>
+      ${I.gpu && !I.gpu.gpu && I.opz.formato === "dds" ? `<p class="ins-disco no">⚠ ${t("ins_dds_cpu")}</p>` : ""}</div>
     <div class="ins-opz riga"><div><b>${t("ins_cancella")}</b><p>${t("ins_cancella_sub")}</p></div><label class="interruttore"><input type="checkbox" data-opz="cancella" ${I.opz.cancella ? "checked" : ""}><span></span></label></div>
     <div class="ins-opz riga"><div><b>${t("ins_salva")}</b><p>${t("ins_salva_sub")}</p></div><label class="interruttore"><input type="checkbox" data-opz="salvataggi" ${I.opz.salvataggi ? "checked" : ""}><span></span></label></div>
     <div class="ins-opz riga"><div><b>${t("ins_libreria")}</b><p>${t("ins_libreria_sub", mb(stimaFine), mb(stimaPicco))}<br><code>${d.libreria}</code></p>
@@ -2581,7 +2605,16 @@ async function insScarica(id, rifai = false) {  // rifai = riscaricato apposta: 
       toast(t("errore"), t("ins_md5"), "errore", 7000);
     } else if (st.stato === "chiusa") {  // finestra ModDB chiusa senza scaricare: si può riprovare
       clearInterval(I.tmDl[id]); delete I.dl[id];
-    } else if (st.stato === "scarico") I.dl[id] = { byte: st.byte, totale: st.totale };
+    } else if (st.stato === "scarico") {
+      I.dl[id] = { byte: st.byte, totale: st.totale };
+      // solo la barra di questa scheda: ridisegnare tutto ogni 0,8 s faceva ripartire l'effetto del mouse sopra
+      const k = document.querySelector(`#ins-lista .ins-carta[data-pacco="${id}"] .ins-dl`);
+      if (k && st.totale) {
+        k.querySelector(".barra i").style.width = (st.byte / st.totale * 100) + "%";
+        k.querySelector("small").textContent = t("ins_scarico", mb(st.byte) + " / " + mb(st.totale));
+        return;
+      }
+    }
     else if (Date.now() - inizio > 20 * 60000) { clearInterval(I.tmDl[id]); delete I.dl[id]; }
     if (S.pagina === "installa") disegnaInstaller();
   }, 800);
@@ -2601,7 +2634,10 @@ async function insAvvia() {
     if (!st || st.errore === undefined && !st.installer) return;
     I.lav = st;
     if (S.pagina === "installa") {
-      disegnaInstaller();
+      // a lavoro in corso cambia solo il riquadro dell'avanzamento: ridisegnare tutta la pagina ogni 0,7 s
+      // ricreava le schede sotto il mouse (effetto "passaggio del mouse" che ripartiva di continuo)
+      const pr = $("#ins-lista .ins-prog");
+      if (pr && !st.finito) pr.outerHTML = insProgresso(st); else disegnaInstaller();
       const f = $("#ins-ferma"); if (f) f.onclick = () => api().lavoro_annulla();
     }
     if (st.finito) {
@@ -3421,8 +3457,8 @@ function appAggSegna(a) {  // versione nuova trovata: pallino sulla versione in 
 async function caricaImpGioco() {  // interruttori di avvio: gli stessi del launcher e di Grafica
   const r = await api().impostazioni_gioco();
   if (!r || r.errore) return;
-  const chiavi = { osd: "notifiche_dolphin", intero: "gioca_intero", solo: "gioca_solo", bordi: "schermo_senza_bordi" };
-  for (const k of ["osd", "fps", "intero", "bordi", "solo", "sopra"]) {
+  const chiavi = { osd: "notifiche_dolphin", intero: "gioca_intero", solo: "gioca_solo", bordi: "schermo_senza_bordi", tasti: "tasti_auto" };
+  for (const k of ["osd", "fps", "intero", "bordi", "solo", "sopra", "tasti"]) {
     const c = $("#imp-" + k);
     c.checked = !!r[k];
     c.onchange = async () => {
@@ -3503,6 +3539,7 @@ async function avvia() {
   $("#cr-chiudi").onclick = () => $("#crediti").classList.add("nascosto");
   $("#crediti").onclick = e => { if (e.target.id === "crediti") $("#crediti").classList.add("nascosto"); };
   $("#imp-crediti").onclick = apriCrediti;
+  $("#imp-segnala").onclick = () => segnalaProblema();
   $("#cr-licenze").onclick = () => api().apri("licenze");
   $("#mz").onclick = e => { if (e.target.id === "mz") $("#mz").classList.add("nascosto"); };
   $("#comandi").onclick = e => { if (e.target.id === "comandi") $("#comandi").classList.add("nascosto"); };
