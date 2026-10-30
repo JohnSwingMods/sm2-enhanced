@@ -61,7 +61,7 @@ Dolphin Emulator team. Developed with the assistance of Claude (Anthropic). The 
 (credits in the app: *Settings > Credits and licenses*). `tools/texconv.exe` is Microsoft DirectXTex (MIT license, see
 `tools/texconv_LICENSE.txt`).
 
-If you like the project you can support it on **[Patreon](https://www.patreon.com/JohnSwing)**. Everything stays free.
+❤️ Support me: https://www.patreon.com/JohnSwing
 
 ## License
 
