@@ -438,7 +438,8 @@ class PadWinmm:
     POV, lo stick sinistro gli assi X/Y. Con un pad Xbox collegato si leggono solo i pad di marche note (gli altri
     potrebbero essere lo stesso pad Xbox visto due volte, con un ordine dei tasti diverso)."""
     BIT = {"a": 0x1000, "b": 0x2000, "x": 0x4000, "y": 0x8000, "lb": 0x0100, "rb": 0x0200, "lt": 0x10000, "rt": 0x20000,
-           "back": 0x0020, "start": 0x0010, "ls": 0x0040, "rs": 0x0080}
+           "back": 0x0020, "start": 0x0010, "ls": 0x0040, "rs": 0x0080,
+           "cattura": 0x40000}  # tasto Cattura (Stadia)
     MAPPE = {0x054C: {"x": 0, "a": 1, "b": 2, "y": 3, "lb": 4, "rb": 5, "lt": 6, "rt": 7, "back": 8, "start": 9, "ls": 10, "rs": 11},  # PS4 / PS5
              0x057E: {"a": 0, "b": 1, "x": 2, "y": 3, "lb": 4, "rb": 5, "lt": 6, "rt": 7, "back": 8, "start": 9, "ls": 10, "rs": 11},  # Switch Pro (per posizione)
              0x18D1: {"a": 0, "b": 1, "x": 2, "y": 3, "lb": 4, "rb": 5, "ls": 6, "rs": 7, "back": 8, "start": 9, "rt": 11, "lt": 12}}  # Stadia (DirectInput; via HID vedi HID_MAPPE)
@@ -639,8 +640,10 @@ def pad_hid():
 
 # Pad letti come HID: i numeri dei tasti sono le "usage" HID (meno 1), che NON sempre coincidono con l'ordine DirectInput
 # del database di SDL. Stadia: ordine "standard Android" (A=1, B=2, X=4, Y=5, LB=7, RB=8, LT=9, RT=10, Select=11,
-# Start=12, L3=14, R3=15), verificato con le pressioni di John (LB=7, RB=8, A=1, Start=12).
-HID_MAPPE = {0x18D1: {"a": 0, "b": 1, "x": 3, "y": 4, "lb": 6, "rb": 7, "lt": 8, "rt": 9, "back": 10, "start": 11, "ls": 13, "rs": 14}}
+# Start=12, L3=14, R3=15), verificato con le pressioni di John (LB=7, RB=8, A=1, Start=12). Cattura = 18, Assistente = 17
+# (letti il 2026-10-31 con l'ascoltatore HID).
+HID_MAPPE = {0x18D1: {"a": 0, "b": 1, "x": 3, "y": 4, "lb": 6, "rb": 7, "lt": 8, "rt": 9, "back": 10, "start": 11, "ls": 13, "rs": 14,
+                      "cattura": 17}}
 
 
 class PadHid:

@@ -2602,6 +2602,15 @@ def _rimuovi(p):
         shutil.rmtree(p, onerror=lambda fn, q, _: (os.chmod(q, stat.S_IWRITE), fn(q)) if os.path.exists(q) else None)
 
 
+def _togli_file(p):
+    """Cancella un file anche se è in sola lettura."""
+    import stat
+    p = Path(p)
+    if p.exists():
+        os.chmod(p, stat.S_IWRITE)
+        p.unlink()
+
+
 def deduplica(cartella):
     """File identici (stessa dimensione e md5) -> un file solo con più nomi (hard link NTFS): per l'app e per
     Dolphin restano file normali, sul disco occupano lo spazio di uno. Byte risparmiati (0 se il disco non li
@@ -4351,6 +4360,31 @@ def dolphin_dell_app(exe):
     return bool(exe) and cartella_dolphin_app() in Path(exe).parents
 
 
+def dolphin_aggiornabile(exe):
+    """L'app può aggiornare questo Dolphin: il suo, o uno messo dall'utente in una cartella in cui si può scrivere
+    (in "Program Files" di solito no: lì serve l'amministratore -> resta il link al sito)."""
+    if dolphin_dell_app(exe):
+        return True
+    if not exe or not Path(exe).is_file():
+        return False
+    import time
+    k = str(exe)
+    if k in _AGGIORNABILE and time.time() - _AGGIORNABILE[k][1] < 60:  # (lo chiede il launcher ogni 2 s)
+        return _AGGIORNABILE[k][0]
+    prova = Path(exe).parent / "_sm2_prova_scrittura"
+    try:
+        prova.write_bytes(b"")
+        prova.unlink()
+        si = os.access(exe, os.W_OK)
+    except OSError:
+        si = False
+    _AGGIORNABILE[k] = (si, time.time())
+    return si
+
+
+_AGGIORNABILE = {}
+
+
 def ultima_dolphin():
     """{"versione": "2609", "url": <7z Windows>} dell'ultima release di Dolphin, None se il sito non risponde."""
     import platform
@@ -4613,9 +4647,10 @@ class InstallaDolphin:
     """Scarica l'ultima Dolphin dal sito ufficiale e la mette in cartella_dolphin_app() in modalità portable, già pronta:
     niente domanda sulle statistiche al primo avvio (risposta "no"), trucchi accesi. Aggiornando, la cartella User resta."""
 
-    def __init__(self):
+    def __init__(self, sopra=None):
         self.fase, self.fatti, self.totale, self.finito, self.errore, self.annulla = "", 0, 0, False, None, False
         self.exe, self.versione = None, None
+        self.sopra = Path(sopra) if sopra else None  # cartella di un Dolphin dell'utente da aggiornare dov'è
 
     def stato(self):
         return {"fase": self.fase, "fatti": self.fatti, "totale": self.totale, "finito": self.finito, "errore": self.errore,
@@ -4678,6 +4713,10 @@ class InstallaDolphin:
         exe = next(tmp.rglob("Dolphin.exe"), None)
         if not exe:
             raise RuntimeError("Dolphin.exe non trovato nell'archivio")
+        if self.sopra:
+            self._copia_sopra(exe.parent)
+            _rimuovi(tmp)
+            return
         # la nuova versione prende il posto della vecchia, la cartella User (impostazioni, salvataggi, texture) resta.
         # Prima la vecchia viene solo RINOMINATA (se cancellarla si fermava a metà, es. antivirus, restava una cartella
         # mezza vuota e User in _User: l'app non vedeva più Dolphin); User torna al suo posto anche se qualcosa va storto
@@ -4707,6 +4746,36 @@ class InstallaDolphin:
         if not ini.exists():
             scrivi_ini_valori(ini, {("Analytics", "PermissionAsked"): "True", ("Analytics", "Enabled"): "False",
                                     ("Core", "EnableCheats"): "True", ("Interface", "ConfirmStop"): "False"})
+        self.exe = dest / "Dolphin.exe"
+        self.fase = "fatto"
+
+    def _copia_sopra(self, nuova):
+        """Dolphin dell'utente (installato da lui, es. in Program Files): i file nuovi vanno sopra
+        quelli vecchi nella sua cartella, come fa l'Updater.exe di Dolphin. User, portable.txt e le sue impostazioni
+        non si toccano (l'archivio non le ha). Prima Dolphin.exe viene copiato a parte: se la copia si ferma a metà,
+        lo rimetto (meglio la versione vecchia intera che una mezza)."""
+        import shutil
+        dest = self.sopra
+        riserva = dest / "Dolphin.exe.sm2_vecchio"
+        shutil.copy2(dest / "Dolphin.exe", riserva)
+        try:
+            for f in nuova.rglob("*"):
+                rel = f.relative_to(nuova)
+                if rel.parts[0] in ("User", "portable.txt"):
+                    continue
+                d = dest / rel
+                if f.is_dir():
+                    d.mkdir(parents=True, exist_ok=True)
+                    continue
+                d.parent.mkdir(parents=True, exist_ok=True)
+                if d.exists():
+                    _togli_file(d)  # (sola lettura o hard link: mai scrivere dentro)
+                shutil.copy2(f, d)
+        except OSError:
+            _togli_file(dest / "Dolphin.exe")
+            riserva.rename(dest / "Dolphin.exe")
+            raise
+        _togli_file(riserva)
         self.exe = dest / "Dolphin.exe"
         self.fase = "fatto"
 

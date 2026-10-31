@@ -219,8 +219,6 @@ class Api:
         self._viaggio_lock = threading.Lock()
         self._mappa_lavoro = None  # giro fotografico della mappa della città in corso: {fase, n, tot}
         threading.Thread(target=self._sorveglia_ora, daemon=True).start()  # tempo fermato dal menu, col gioco aperto
-        if os.environ.get("SPIDEY_REGIA_FILE"):  # (solo riprese/prove: comandi da un file, vedi _regia_file)
-            threading.Thread(target=self._regia_file, daemon=True).start()
         threading.Thread(target=self._sorveglia_ragnatele, daemon=True).start()  # ragnatele che seguono il costume
         threading.Thread(target=self._sorveglia_pad, daemon=True).start()  # LB + RB in gioco = menu
         threading.Thread(target=self._sorveglia_linee, daemon=True).start()  # Opzioni > Controller: linee fino ai tasti
@@ -2511,50 +2509,6 @@ class Api:
         threading.Thread(target=via, daemon=True).start()
         return True
 
-    def _regia_file(self):
-        """SOLO PER LE RIPRESE DEL VIDEO E LE PROVE (variabile d'ambiente SPIDEY_REGIA_FILE = file di comandi): ogni riga nuova
-        è un comando, eseguito in ordine: "menu:<JS>" nel menu in gioco, "app:<JS>" nella finestra dell'app, "py:<codice>"
-        Python con self. Il risultato (o l'errore) va in una riga del file .out accanto."""
-        import time
-        f = Path(os.environ["SPIDEY_REGIA_FILE"])
-        out = f.with_suffix(".out")
-        letto = f.stat().st_size if f.exists() else 0
-        while True:
-            time.sleep(0.02)
-            try:
-                if not f.exists() or f.stat().st_size <= letto:
-                    if f.exists() and f.stat().st_size < letto:
-                        letto = 0
-                    continue
-                with open(f, "rb") as h:
-                    h.seek(letto)
-                    blocco = h.read()
-                fine = blocco.rfind(b"\n")
-                if fine < 0:
-                    continue
-                letto += fine + 1
-                for riga in blocco[:fine].decode("utf-8").splitlines():
-                    riga = riga.strip()
-                    if not riga:
-                        continue
-                    tipo, _, codice = riga.partition(":")
-                    try:
-                        if tipo == "menu":
-                            r = self._menu_js(codice)
-                        elif tipo == "app":
-                            r = self._finestra.evaluate_js(codice)
-                        else:
-                            ambiente = {"self": self, "core": core, "time": time}
-                            exec(compile(codice, "<regia>", "exec"), ambiente)
-                            r = ambiente.get("r")
-                        esito = f"ok {r!r}"[:400]
-                    except Exception as e:  # noqa: BLE001
-                        esito = f"errore {e!r}"[:400]
-                    with open(out, "a", encoding="utf-8") as h:
-                        h.write(esito.replace("\n", " ") + "\n")
-            except Exception:  # noqa: BLE001
-                time.sleep(0.5)
-
     @protetto
     def menu_apri_prova(self, gioco=False):
         """Solo per provare: apre il menu come se avessi premuto LB + RB (sul gioco vero o, senza, sulla finestra dell'app)."""
@@ -3434,10 +3388,11 @@ class Api:
         """Interruttori di avvio (pagina Impostazioni): messaggi di Dolphin, FPS, schermo intero, solo il gioco."""
         dolphin = core.trova_dolphin(self._conf)
         gv = core.grafica_valori(dolphin, self._conf.get("ultima_versione") or "GK2E52") if dolphin else {}
-        return {"osd": bool(self._conf.get("notifiche_dolphin", False)), "fps": bool(gv.get("fps")),
-                "intero": bool(self._conf.get("gioca_intero", True)), "solo": bool(self._conf.get("gioca_solo", True)),
-                "sopra": self._sopra(), "bordi": bool(self._conf.get("schermo_senza_bordi", True)),
-                "tasti": bool(self._conf.get("tasti_auto", True))}
+        r = {"osd": bool(self._conf.get("notifiche_dolphin", False)), "fps": bool(gv.get("fps")),
+             "intero": bool(self._conf.get("gioca_intero", True)), "solo": bool(self._conf.get("gioca_solo", True)),
+             "sopra": self._sopra(), "bordi": bool(self._conf.get("schermo_senza_bordi", True)),
+             "tasti": bool(self._conf.get("tasti_auto", True))}
+        return r
 
     @protetto
     def grafica_android_salva(self, valori):
@@ -4032,7 +3987,7 @@ class Api:
         gv = core.grafica_valori(dolphin, self._conf.get("ultima_versione") or "GK2E52") if dolphin else {}
         return {"pad": self._pad(), "dolphin": str(dolphin) if dolphin else None, "exe": str(exe) if exe else None,
                 "rag_alt": bool(self._conf.get("rag_alt")),  # per la finestra Comandi: cambiano solo con l'app aperta
-                "versione_dolphin": core.versione_exe_dolphin(exe), "dell_app": core.dolphin_dell_app(exe),
+                "versione_dolphin": core.versione_exe_dolphin(exe), "dell_app": core.dolphin_aggiornabile(exe),
                 "aggiornamento": self._ultima, "app_agg": self._agg_info(), "aperto": bool(core.exe_dolphin_aperti()), "nomi": core.NOMI_VERSIONE,
                 "giochi": {g: {"disco": p, "file": Path(p).name} for g, p in giochi.items()},
                 "persi": {g: p for g, p in self._conf.get("dischi", {}).items() if g not in giochi and not Path(p).is_file()},
@@ -4178,17 +4133,23 @@ class Api:
         return {"trovati": sorted(trovati), "nuovi": sorted(nuovi)}
 
     @protetto
-    def gioca_installa_dolphin(self):
-        """Scarica e prepara l'ultima Dolphin nella cartella dell'app (anche per aggiornarla)."""
+    def gioca_installa_dolphin(self, aggiorna=False):
+        """Scarica e prepara l'ultima Dolphin nella cartella dell'app (anche per aggiornarla). aggiorna con un Dolphin
+        messo dall'utente in una cartella scrivibile = i file nuovi vanno sopra i suoi, dov'è (impostazioni intatte)."""
         if self._lavoro and not self._lavoro.finito:
             return {"errore": "occupato"}
         if core.exe_dolphin_aperti():
             return {"errore": "gioca_aperto"}
-        job = core.InstallaDolphin()
+        exe = core.trova_exe_dolphin(self._conf, core.trova_dolphin(self._conf)) if aggiorna else None
+        sopra = Path(exe).parent if exe and not core.dolphin_dell_app(exe) and core.dolphin_aggiornabile(exe) else None
+        job = core.InstallaDolphin(sopra=sopra)
         self._lavoro = job
 
         def via():
             job.esegui()
+            if sopra:
+                self._giochi = None
+                return
             if job.exe and not job.errore:
                 self._conf["dolphin_exe"], self._conf["dolphin"] = str(job.exe), str(job.exe.parent / "User")
                 core.scrivi_config(self._conf)
@@ -4380,7 +4341,8 @@ class Api:
         # hanno il tasto rapido (1-8) parto normale e lo carico io (F<n>) quando il gioco gira fluido.
         dopo = bool(slot) and slot in core.SLOT_TASTI
         stato = ["-s", str(core.file_stato(dolphin, gid, slot))] if slot and not dopo else []
-        avvia_esterno([str(exe)] + (["-b"] if solo else []) + intero_arg + stato + ["-e", str(disco)], cwd=str(exe.parent))
+        reg = []
+        avvia_esterno([str(exe)] + (["-b"] if solo else []) + intero_arg + reg + stato + ["-e", str(disco)], cwd=str(exe.parent))
         if dopo:
             threading.Thread(target=self._carica_quando_pronto, args=(gid, slot), daemon=True).start()
         return {"ok": True, "trucchi": trucchi, "dopo": dopo, "pad_auto": pad_auto, "tasti_auto": tasti_auto}

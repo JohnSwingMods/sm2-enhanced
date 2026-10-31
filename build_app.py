@@ -34,7 +34,8 @@ def build():
        "--add-data", "tools/texconv.exe;tools", "--add-data", "tools/texconv_LICENSE.txt;tools",
        "--add-data", "codici_db.json;.", "--add-data", "moddb_catalogo.json;.", "--add-data", "spidey_app.ico;.",
        *[x for m in ("numpy", "unittest", "pytest", "customtkinter", "tkinter", "PIL.AvifImagePlugin", "PIL._avif") for x in ("--exclude-module", m)],
-       "--hidden-import", "lz4.block", "--hidden-import", "modello_disco", "--hidden-import", "ora", "--hidden-import", "teletrasporto", "--hidden-import", "mirino", "spidey_app.py")
+       "--hidden-import", "lz4.block", "--hidden-import", "modello_disco", "--hidden-import", "ora", "--hidden-import", "teletrasporto", "--hidden-import", "mirino",
+       "spidey_app.py")
     print("fatto:", exe)
 
 

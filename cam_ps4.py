@@ -74,7 +74,7 @@ MODI = {"moderna": 0, "classica": 1, "originale": 2, "prima": 3, "cinematica": 4
 MODI_BASE = ("moderna", "amazing")  # John 2026-10-10: le consigliate (prima moderna + originale)
 # CINEMATICA (modo 4; era la prima "amazing", John: "bellissima, salviamola") e AMAZING (modo 5, come The Amazing
 # Spider-Man 1 dal video che ha mandato John: molto più OVER THE SHOULDER, vicina, spalle, Spidey nel terzo sinistro):
-# la moderna con un'altra regia, 817F05A0 = 1 cinematica / 2 amazing. Ogni fotogramma la serie di costanti della camera
+# la moderna con un'altra inquadratura, 817F05A0 = 1 cinematica / 2 amazing. Ogni fotogramma la serie di costanti della camera
 # scelta (CIN a 817F3800, TASM a 817F3880, stessa disposizione) si copia in 817F3900 (quella che il programma legge);
 # + spostamento di lato S (camera a destra di Spidey, come guardare oltre la sua spalla destra) a +0x40/+0x48/+0x50
 # (terra/aria/swing, 0 nella cinematica), ammorbidito in 817F05BC; anche il raggio dei muri lo tiene in conto.
@@ -411,8 +411,8 @@ tc_fine:
 # ATTACCATO AL MURO (John: "arrivato al bordo del palazzo si arrampica a vuoto finché non lasci la levetta; con la camera
 # originale sale subito"). La camera del gioco sul muro (modalità 5) guarda IN SU lungo il muro: per il gioco levetta su =
 # su, e al bordo scavalca. Le nostre guardano il muro da dietro: levetta su = dentro il muro; arrampicarsi va lo stesso, ma al
-# bordo il "vuole salire?" fallisce (lasciando la levetta il gioco sale da solo). Registrato (prove_gioco/registra_bordo.py,
-# bordo_analisi.py): camera originale av = (0.31, 0.95, 0.10) quasi in su, la nostra (0.95, -0.07, 0.30) orizzontale.
+# bordo il "vuole salire?" fallisce (lasciando la levetta il gioco sale da solo). Misurato:
+# camera originale av = (0.31, 0.95, 0.10) quasi in su, la nostra (0.95, -0.07, 0.30) orizzontale.
 # Qui, con Spidey sul muro (stato 2) e muro verticale (|y| dell'asse su del corpo < 0.5: il soffitto ha 817F0558), il DISEGNO
 # resta la nostra camera (aggancio VISTA: occhio/bersaglio/su in 817F03B0.., 817F008C = 1, se la prima persona non li ha già
 # messi) e alla matrice che leggono i COMANDI ([camera+0x30]) do: avanti = (su del mondo + 0.5 * dentro il muro) normalizzato,

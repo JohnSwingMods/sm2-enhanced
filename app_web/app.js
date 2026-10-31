@@ -1735,7 +1735,7 @@ function disegnaGioca() {
   const ag = $("#gi-agg"); if (ag) ag.onclick = async () => {
     if (!(await modale({ titolo: t("gioca_agg_tit", d.aggiornamento.versione), testo: t("gioca_agg_testo"),
       bottoni: [[false, t("annulla")], [true, t("gioca_agg_b"), true]] }))) return;
-    giInstallaDolphin();
+    giInstallaDolphin(true);
   };
   const ap = $("#gi-apri"); if (ap) ap.onclick = async () => { const r = await api().gioca_apri_dolphin(); if (r && r.errore) toast(t("errore"), errTesto(r.errore), "errore"); };
   const ch = $("#gi-chiudi"); if (ch) ch.onclick = () => api().gioca_chiudi();
@@ -2055,11 +2055,11 @@ function giProg(lav) {
       : t("gu_scarico", pc ? pc + "%" : "")}</b></div>
       <div class="barra"><i style="width:${lav.fase === "estraggo" || lav.fase === "fatto" ? 100 : pc || 5}%"></i></div></div>`;
 }
-async function giInstallaDolphin() {
+async function giInstallaDolphin(aggiorna = false) {  // aggiorna: anche un Dolphin dell'utente, dov'è
   if (giLavora()) return;  // già in corso: niente secondo download
   Q.lav = { fase: "cerco", fatti: 0, totale: 0 };
   if (S.pagina === "gioca") disegnaGioca();
-  const r = await api().gioca_installa_dolphin();
+  const r = await api().gioca_installa_dolphin(aggiorna);
   if (r && r.errore === "occupato") return;  // (il primo sta già andando: la barra lo segue)
   if (!r || r.errore) { Q.lav = null; toast(t("errore"), errTesto(r && r.errore), "errore"); if (S.pagina === "gioca") disegnaGioca(); return; }
   const tm = setInterval(async () => {
@@ -3458,7 +3458,8 @@ async function caricaImpGioco() {  // interruttori di avvio: gli stessi del laun
   const r = await api().impostazioni_gioco();
   if (!r || r.errore) return;
   const chiavi = { osd: "notifiche_dolphin", intero: "gioca_intero", solo: "gioca_solo", bordi: "schermo_senza_bordi", tasti: "tasti_auto" };
-  for (const k of ["osd", "fps", "intero", "bordi", "solo", "sopra", "tasti"]) {
+  const voci = ["osd", "fps", "intero", "bordi", "solo", "sopra", "tasti"];
+  for (const k of voci) {
     const c = $("#imp-" + k);
     c.checked = !!r[k];
     c.onchange = async () => {
