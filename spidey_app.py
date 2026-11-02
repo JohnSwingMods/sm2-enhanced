@@ -1827,7 +1827,7 @@ class Api:
             return
         prima, tenuto, gioco, quando, hud_quando, ripetuti, stick_vivo = 0, {}, None, 0.0, 0.0, {}, False
         sin_vivo, pad_log, errore_pad, xbox_visto = False, 0, False, False
-        gid_gioco, tasto_p = None, False
+        gid_gioco = None
         dorsali = {}  # LB/RB premuti col menu aperto: valgono al RILASCIO, se intanto non è arrivato anche l'altro (LB+RB)
         import app_controller
         ps = self._pad_ps = app_controller.PadWinmm()  # pad PlayStation / Switch Pro (non sono XInput): stessi tasti del pad Xbox
@@ -1891,16 +1891,14 @@ class Api:
                 # LB + RB con QUALSIASI controller, anche la tastiera: li guardo anche DENTRO il gioco. Nel profilo LB =
                 # freccia sinistra + destra, RB = Z: se il controller funziona nel gioco, Z + sinistra + destra arrivano nella
                 # memoria del gioco anche quando l'app non sa leggere quel controller (YouTube: "il pannello LB+RB non
-                # compare"). Con la tastiera anche P (app_controller.TASTIERA_MENU), col gioco in primo piano.
+                # compare"). Con la tastiera P fa lo stesso: nel profilo e' Z + sinistra + destra (app_controller.TASTIERA_MENU).
                 letto_da_me = b & 0x0300 == 0x0300
                 if not self._menu_aperto and gioco:
                     nel = self._tasti_gioco(gid_gioco)
-                    p_giu = bool(ctypes.windll.user32.GetAsyncKeyState(0x50) & 0x8000) and                         ctypes.windll.user32.GetForegroundWindow() == gioco
-                    if (nel is not None and nel & 0x13 == 0x13) or (p_giu and not tasto_p):
+                    if nel is not None and nel & 0x13 == 0x13:
                         b |= 0x0300
                         if not letto_da_me and not prima & 0x0300:
                             self._pad_non_letto = (xbox_visto, [d["nome"] for d in ps.dispositivi], [d["nome"] for d in hidpad.dispositivi])
-                    tasto_p = p_giu
                 self._pad_bits, self._pad_quando = b, ora  # per _aspetta_rilascio (un solo lettore dei pad: questo filo)
                 self._pad_levette = (sinistro, destro)  # per la vista 3D della città (la legge il suo filo)
                 combo = 0x0100 | 0x0200

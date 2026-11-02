@@ -57,7 +57,8 @@ TASTIERA = {"Buttons/A": "SPACE", "Buttons/B": "J", "Buttons/X": "K", "Buttons/Y
             "C-Stick/Up": "UP", "C-Stick/Down": "DOWN", "C-Stick/Left": "LEFT", "C-Stick/Right": "RIGHT"}
 # comandi della mod dalla tastiera (come gli extra del pad: premono piu' tasti del GameCube insieme)
 TASTIERA_EXTRA = {"costume": "F", "camera": "R", "mappa": "M", "hud": "H"}
-TASTIERA_MENU = "P"  # menu in gioco dell'app (lo legge l'app col gioco in primo piano, non e' un tasto del GameCube)
+TASTIERA_MENU = "P"  # menu in gioco dell'app = LB + RB (Z + sinistra + destra): l'app lo vede dalla memoria del gioco
+# (prima l'app controllava il tasto P di continuo: per gli antivirus sembrava un programma che spia la tastiera)
 DELL_APP = {"Buttons/X": (TASTO_MAPPA,), "Buttons/Z": (TASTO_APRI_MAPPA,), "Buttons/Start": (TASTO_APRI_MAPPA,)}  # quelli che mette
 
 
@@ -435,6 +436,8 @@ def _tastiera_righe():
     for cosa, tasto in TASTIERA_EXTRA.items():
         for k in EXTRA[cosa]:
             out.setdefault(k, []).append(tasto)
+    for k in ("Buttons/Z", "D-Pad/Left", "D-Pad/Right"):
+        out.setdefault(k, []).append(TASTIERA_MENU)
     return out
 
 

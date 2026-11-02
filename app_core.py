@@ -4973,7 +4973,7 @@ class Musica:
         import subprocess
         if self.proc and self.proc.poll() is None:
             return
-        self.proc = subprocess.Popen(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(contenuti() / "musica.ps1")],
+        self.proc = subprocess.Popen(["powershell", "-NoProfile", "-ExecutionPolicy", "RemoteSigned", "-File", str(contenuti() / "musica.ps1")],
                                      stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
                                      creationflags=0x08000000, text=True, encoding="utf-8", bufsize=1, env=ambiente_figli())
 
