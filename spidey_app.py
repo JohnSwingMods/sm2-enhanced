@@ -202,6 +202,8 @@ class Api:
         self._menu, self._menu_aperto, self._menu_gioco = None, False, None
         self._menu_lock = threading.Lock()  # aprire / chiudere uno alla volta (premendo LB + RB di fila si accavallavano)
         self._pad_app, self._pad_app_lock = None, threading.Lock()  # pad letti per la pagina (pad_leggi)
+        self._tex_lock = threading.Lock()
+        self._cartella_avvisata = None  # (cartella del Dolphin, cartella della mod) gia' scritte nel registro  # un conteggio delle texture alla volta (la barra della pagina è una sola)
         self._menu_fin_lock = threading.Lock()  # una finestra del menu sola (preparazione e primo LB + RB insieme)
         self._riavvio_lock = threading.Lock()  # un riavvio del gioco alla volta (due A di fila = due Dolphin)
         self._hud_snap = None  # stato dell'HUD (817F0014) prima di premere LB: il menu lo rimette com'era
@@ -1493,7 +1495,7 @@ class Api:
             return {"errore": "nessuna versione da copiare"}
         src, dest = D / "GameSettings" / f"{da}.ini", D / "GameSettings" / f"{gid}.ini"
         # 1. texture: la cartella che usa la versione modello vale anche per questa
-        base = D / "Load" / "Textures"
+        base = core.cartella_textures(D)
         if da in core.versioni_texture(D) and gid not in core.versioni_texture(D):
             cart = next((c for c in core.cartelle_texture(D) if c.is_dir() and (c.name == da or (c / f"{da}.txt").exists())), None)
             if cart:
@@ -1825,6 +1827,7 @@ class Api:
             return
         prima, tenuto, gioco, quando, hud_quando, ripetuti, stick_vivo = 0, {}, None, 0.0, 0.0, {}, False
         sin_vivo, pad_log, errore_pad, xbox_visto = False, 0, False, False
+        gid_gioco, tasto_p = None, False
         dorsali = {}  # LB/RB premuti col menu aperto: valgono al RILASCIO, se intanto non è arrivato anche l'altro (LB+RB)
         import app_controller
         ps = self._pad_ps = app_controller.PadWinmm()  # pad PlayStation / Switch Pro (non sono XInput): stessi tasti del pad Xbox
@@ -1835,6 +1838,7 @@ class Api:
                 if ora - quando > 1:  # il gioco c'è? (controllo leggero, una volta al secondo)
                     quando = ora
                     gioco = core.finestra_gioco() if core.exe_dolphin_aperti() else None
+                    gid_gioco = core.gioco_in_corso() if gioco else None
                     if os.environ.get("SPIDEY_MENU_PROVA"):  # per provare il menu senza il gioco
                         gioco = gioco or self._finestra and ctypes.windll.user32.FindWindowW(None, TITOLO)
                     if not gioco and self._menu_aperto and self._menu_lock.acquire(blocking=False):
@@ -1884,6 +1888,19 @@ class Api:
                     if not errore_pad:
                         errore_pad = True
                         self._log_menu(f"pad PlayStation/HID: errore {e!r}")
+                # LB + RB con QUALSIASI controller, anche la tastiera: li guardo anche DENTRO il gioco. Nel profilo LB =
+                # freccia sinistra + destra, RB = Z: se il controller funziona nel gioco, Z + sinistra + destra arrivano nella
+                # memoria del gioco anche quando l'app non sa leggere quel controller (YouTube: "il pannello LB+RB non
+                # compare"). Con la tastiera anche P (app_controller.TASTIERA_MENU), col gioco in primo piano.
+                letto_da_me = b & 0x0300 == 0x0300
+                if not self._menu_aperto and gioco:
+                    nel = self._tasti_gioco(gid_gioco)
+                    p_giu = bool(ctypes.windll.user32.GetAsyncKeyState(0x50) & 0x8000) and                         ctypes.windll.user32.GetForegroundWindow() == gioco
+                    if (nel is not None and nel & 0x13 == 0x13) or (p_giu and not tasto_p):
+                        b |= 0x0300
+                        if not letto_da_me and not prima & 0x0300:
+                            self._pad_non_letto = (xbox_visto, [d["nome"] for d in ps.dispositivi], [d["nome"] for d in hidpad.dispositivi])
+                    tasto_p = p_giu
                 self._pad_bits, self._pad_quando = b, ora  # per _aspetta_rilascio (un solo lettore dei pad: questo filo)
                 self._pad_levette = (sinistro, destro)  # per la vista 3D della città (la legge il suo filo)
                 combo = 0x0100 | 0x0200
@@ -2130,6 +2147,33 @@ class Api:
             return None
         return db["versioni"].get(gid)
 
+    def _menu_fuoco(self):
+        """La tastiera alla pagina del menu: la finestra davanti non basta, il fuoco deve andare al WebView2 dentro (pywebview
+        lo fa solo la prima volta che la mostra; riaprendo il menu frecce/Invio/Esc andavano persi)."""
+        try:
+            from System import Action
+            f = self._menu.native
+            f.Invoke(Action(lambda: (f.Activate(), f.browser.webview.Focus()) and None))
+        except Exception as e:  # noqa: BLE001
+            self._log_menu(f"fuoco alla pagina del menu: {e!r}")
+
+    def _tasti_gioco(self, gid):
+        """Tasti del GameCube come li vede il gioco (halfword; Z 0x10, sinistra 1, destra 2), solo se la memoria e' gia'
+        agganciata o si aggancia subito (se no riprova tra 2 s: questo gira 30 volte al secondo)."""
+        if not gid or gid == "?" or time.time() < getattr(self, "_tasti_gioco_dopo", 0):
+            return None
+        try:
+            import cam_ps4
+            import dolphin_memory_engine as dme
+            with self._dme_lock:
+                if not core.aggancia_dme():
+                    self._tasti_gioco_dopo = time.time() + 2
+                    return None
+                return int.from_bytes(dme.read_bytes(cam_ps4.VERSIONI[gid]["tasti"], 2), "big")
+        except Exception:  # noqa: BLE001
+            self._tasti_gioco_dopo = time.time() + 2
+            return None
+
     def _hud_leggi(self):
         """Byte di stato dell'HUD (817F0014, dispari = nascosto), solo se la memoria è già agganciata (leggero)."""
         try:
@@ -2273,7 +2317,13 @@ class Api:
         if w:
             self._menu_posiziona(w, gioco)
             core._davanti(w)
+            self._menu_fuoco()
             threading.Thread(target=self._menu_segui, args=(w,), daemon=True).start()
+        nl, self._pad_non_letto = getattr(self, "_pad_non_letto", None), None
+        if nl:  # aperto dalla memoria del gioco o con P: questo controller l'app non lo legge -> si usa mouse/tastiera
+            self._log_menu(f"aperto senza leggere il pad (xinput={int(nl[0])} winmm={nl[1]} hid={nl[2]})")
+            self._menu_js("setTimeout(() => { toast(t('mn_pad_non_letto')); clearTimeout(toast.tm); "
+                          "toast.tm = setTimeout(() => $('#mn-toast').classList.add('nascosto'), 7000); }, 400)")
 
     def _menu_rett(self, gioco):
         """Dove va il menu: dentro la finestra del gioco (parte disegnata), centrato, sempre nelle stesse proporzioni,
@@ -3247,6 +3297,7 @@ class Api:
         f = ac.file_profilo(dolphin)
         righe = ac.leggi(f if f.is_file() else ac.predefinito())
         ac.scrivi(f, ac.componi(righe, device, base, extra))
+        ac.metti_tastiera(ac.file_profilo(dolphin), self._conf.get("tastiera", True))  # la tastiera resta insieme al pad
         return self.controller_stato()
 
     @protetto
@@ -3264,6 +3315,7 @@ class Api:
             dev = f"SDL/0/{ac.NOMI_SDL.get(nome_sdl, nome_sdl) or ac.NOMI_SDL['ps5']}"  # chiave (ps5/ps4/switch) o nome (meglio controller_auto)
         # profilo da capo: la camera invertita scelta nell'app resta (config cam_inverti)
         ac.scrivi(ac.file_profilo(dolphin), ac.inverti(ac.componi(righe, dev, base, extra), self._conf.get("cam_inverti"))[0])
+        ac.metti_tastiera(ac.file_profilo(dolphin), self._conf.get("tastiera", True))  # la tastiera resta insieme al pad
         return self.controller_stato()
 
     def _dispositivi_dolphin(self, attesa=9):
@@ -3362,6 +3414,7 @@ class Api:
             righe = ac.leggi(f)
             base, extra = prof["base"], prof["extra"]
         ac.scrivi(f, ac.inverti(ac.componi(righe, dev, base, extra), self._conf.get("cam_inverti"))[0])
+        ac.metti_tastiera(ac.file_profilo(dolphin), self._conf.get("tastiera", True))  # la tastiera resta insieme al pad
         st = self._controller_ini_sistema(dolphin)
         st["dispositivo"] = dev
         return st
@@ -3391,6 +3444,17 @@ class Api:
         return self.controller_stato()
 
     @protetto
+    def controller_tastiera(self, si):
+        """Tastiera insieme al controller (Impostazioni > Quando giochi): stessi comandi dalla tastiera (app_controller.TASTIERA)."""
+        import app_controller as ac
+        self._conf["tastiera"] = bool(si)
+        core.scrivi_config(self._conf)
+        dolphin = core.trova_dolphin(self._conf)
+        if dolphin and ac.file_profilo(dolphin).is_file():
+            ac.metti_tastiera(ac.file_profilo(dolphin), bool(si))
+        return True
+
+    @protetto
     def impostazioni_gioco(self):
         """Interruttori di avvio (pagina Impostazioni): messaggi di Dolphin, FPS, schermo intero, solo il gioco."""
         dolphin = core.trova_dolphin(self._conf)
@@ -3398,7 +3462,7 @@ class Api:
         r = {"osd": bool(self._conf.get("notifiche_dolphin", False)), "fps": bool(gv.get("fps")),
              "intero": bool(self._conf.get("gioca_intero", True)), "solo": bool(self._conf.get("gioca_solo", True)),
              "sopra": self._sopra(), "bordi": bool(self._conf.get("schermo_senza_bordi", True)),
-             "tasti": bool(self._conf.get("tasti_auto", True))}
+             "tasti": bool(self._conf.get("tasti_auto", True)), "tastiera": bool(self._conf.get("tastiera", True))}
         return r
 
     @protetto
@@ -3487,8 +3551,9 @@ class Api:
         voci = self._texture()
         if not (pack and dolphin):
             return {"voci": [], "prop": {}, "estranei": 0}
-        prop = core.stato_texture(dolphin, pack, voci)
-        conti = core.conta_texture(pack, voci, prop)
+        with self._tex_lock:
+            prop = core.stato_texture(dolphin, pack, voci)
+            conti = core.conta_texture(pack, voci, prop)
         return {"voci": [{k: v[k] for k in ("id", "nome", "mod", "crediti", "link")} | {"file": conti[v["id"]]["diverse"]} for v in voci],
                 "prop": prop, "estranei": sum(x == "?" for x in prop.values()), "modi": core.modi_texture(self._conf.get("tx_modi", {}), voci)}
 
@@ -3994,7 +4059,9 @@ class Api:
         gv = core.grafica_valori(dolphin, self._conf.get("ultima_versione") or "GK2E52") if dolphin else {}
         return {"pad": self._pad(), "dolphin": str(dolphin) if dolphin else None, "exe": str(exe) if exe else None,
                 "rag_alt": bool(self._conf.get("rag_alt")),  # per la finestra Comandi: cambiano solo con l'app aperta
+                "tastiera": bool(self._conf.get("tastiera", True)),  # tasti della tastiera insieme al controller (Comandi)
                 "versione_dolphin": core.versione_exe_dolphin(exe), "dell_app": core.dolphin_aggiornabile(exe),
+                "dolphin_vecchio": core.dolphin_vecchio(core.versione_exe_dolphin(exe)),
                 "aggiornamento": self._ultima, "app_agg": self._agg_info(), "aperto": bool(core.exe_dolphin_aperti()), "nomi": core.NOMI_VERSIONE,
                 "giochi": {g: {"disco": p, "file": Path(p).name} for g, p in giochi.items()},
                 "persi": {g: p for g, p in self._conf.get("dischi", {}).items() if g not in giochi and not Path(p).is_file()},
@@ -4280,12 +4347,25 @@ class Api:
     @protetto
     def gioca_apri_dolphin(self):
         """Apre Dolphin normale (per le sue impostazioni), senza gioco."""
-        exe = core.trova_exe_dolphin(self._conf, core.trova_dolphin(self._conf))
+        dolphin = core.trova_dolphin(self._conf)
+        exe = core.trova_exe_dolphin(self._conf, dolphin)
         if not exe:
             return {"errore": "gioca_exe_no"}
         if not core.exe_dolphin_aperti():
-            avvia_esterno([str(exe)], cwd=str(exe.parent))
+            avvia_esterno([str(exe)] + self._cartella_utente(exe, dolphin), cwd=str(exe.parent))
         return True
+
+    def _cartella_utente(self, exe, dolphin):
+        """["-u", cartella] se questo Dolphin, aperto da solo, userebbe un'altra cartella utente (due Dolphin sul PC, uno
+        portable, il registro di Dolphin...): la mod sta in quella dell'app. Senza, l'app diceva "tutto installato" e il
+        gioco partiva senza texture HD e senza codici (segnalato su YouTube)."""
+        utente = core.cartella_utente_exe(exe)
+        if not dolphin or not utente or core.stessa_cartella(utente, dolphin):
+            return []
+        if self._cartella_avvisata != (str(utente), str(dolphin)):
+            self._cartella_avvisata = (str(utente), str(dolphin))
+            core.log_errore(f"Dolphin avviato con -u: da solo userebbe {utente}, la mod e' in {dolphin}")
+        return ["-u", str(core.corto(dolphin))]
 
     @protetto
     def gioca_chiudi(self):
@@ -4316,7 +4396,7 @@ class Api:
         try:
             import app_controller
             app_controller.aggiorna_vecchio(dolphin, self._conf)  # vecchio profilo -> L3 costume, R3 camera, Select mappa, LB HUD
-            app_controller.assicura(dolphin, gid)  # anche senza mod/codici: il pad funziona col profilo dell'app
+            app_controller.assicura(dolphin, gid, self._conf.get("tastiera", True))  # anche senza mod/codici: il pad funziona col profilo dell'app (+ tastiera)
             app_controller.applica_inversione(dolphin, self._conf.get("cam_inverti"))  # camera invertita scelta nell'app
         except Exception:  # noqa: BLE001 - non deve mai bloccare l'avvio
             pass
@@ -4349,8 +4429,8 @@ class Api:
         dopo = bool(slot) and slot in core.SLOT_TASTI
         stato = ["-s", str(core.file_stato(dolphin, gid, slot))] if slot and not dopo else []
         reg, kw = [], {}
-        avvia_esterno([str(exe)] + (["-b"] if solo else []) + intero_arg + reg + stato + ["-e", str(disco)], cwd=str(exe.parent),
-                      **kw)
+        avvia_esterno([str(exe)] + self._cartella_utente(exe, dolphin) + (["-b"] if solo else []) + intero_arg + reg + stato
+                      + ["-e", str(disco)], cwd=str(exe.parent), **kw)
         if dopo:
             threading.Thread(target=self._carica_quando_pronto, args=(gid, slot), daemon=True).start()
         return {"ok": True, "trucchi": trucchi, "dopo": dopo, "pad_auto": pad_auto, "tasti_auto": tasti_auto}
@@ -5116,6 +5196,21 @@ class Api:
         except Exception:  # noqa: BLE001
             pass
         righe.append(f"Dolphin: {core.versione_exe_dolphin(exe) if exe else 'non trovato'}")
+        try:  # "tutto installato ma niente texture": dove scrive l'app, dove legge quel Dolphin, dove legge le texture
+            utente = core.cartella_utente_exe(exe) if exe else None
+            righe.append(f"Cartella della mod: {'si' if dolphin else 'no'}; quella di Dolphin da solo: "
+                         f"{'uguale' if utente and dolphin and core.stessa_cartella(utente, dolphin) else 'DIVERSA' if utente else '?'}")
+            if dolphin:
+                tx = core.cartella_textures(dolphin)
+                righe.append(f"Cartella Textures: {'spostata (LoadPath)' if not core.stessa_cartella(tx, Path(dolphin) / 'Load' / 'Textures') else 'normale'}, "
+                             f"esiste: {tx.is_dir()}, versioni: {core.versioni_texture(dolphin)}")
+                gfx = core.leggi_ini(Path(dolphin) / "Config" / "GFX.ini")
+                righe.append(f"GFX.ini: backend {core.leggi_ini(Path(dolphin) / 'Config' / 'Dolphin.ini').get('Core', {}).get('GFXBackend', '?')}, "
+                             f"HiresTextures {gfx.get('Settings', {}).get('HiresTextures', '-')}, Cache {gfx.get('Settings', {}).get('CacheHiresTextures', '-')}")
+            if exe and core.dolphin_vecchio(core.versione_exe_dolphin(exe)):
+                righe.append("Dolphin TROPPO VECCHIO per le texture DDS")
+        except Exception as e:  # noqa: BLE001
+            righe.append(f"Cartelle: errore {e!r}")
         try:
             giochi = self._tutti_giochi(dolphin) if dolphin else {}
             righe.append("Versioni del gioco: " + (", ".join(f"{core.NOMI_VERSIONE.get(g, g)} ({Path(p).suffix})" for g, p in giochi.items()) or "nessuna"))
@@ -5149,8 +5244,21 @@ class Api:
                     coda = log.read_text(encoding="utf-8", errors="replace").splitlines()[-quante:]
                     z.writestr(nome, pulito("\n".join(coda)) + "\n")
         titolo = f"[{core.VERSIONE_APP}] " + (pulito(str(errore))[:80] if errore else "")
-        testo = (f"**What happened?**\n\n\n**What were you doing?**\n\n\n---\nSM2 Enhanced {core.VERSIONE_APP}, Windows {platform.release()}\n"
-                 f"Please drag the file `{f.name}` (in your Downloads folder) into this box.")
+        # le cose importanti anche nel testo della pagina: quasi nessuno trascina il file (2 segnalazioni su 2 senza)
+        info = [r for r in righe if not r.startswith("Mod per versione")]
+        try:
+            mv = core.mod_versioni(dolphin) if dolphin else {}
+            info.append("Mod: " + "; ".join(f"{g} ini={int(m.get('ini', False))} hd={int(m.get('texture', False))}"
+                                            f"{' HD-OFF' if m.get('hd_spente') else ''} codici={m.get('codici', 0)}"
+                                            for g, m in mv.items() if m.get("ini") or m.get("texture") or m.get("hd_spente")))
+        except Exception:  # noqa: BLE001
+            pass
+        log = core.CONF_DIR / "errori.log"
+        ultimi = log.read_text(encoding="utf-8", errors="replace").splitlines()[-12:] if log.is_file() else []
+        dati = pulito("\n".join(info + (["", "Last errors:"] + ultimi if ultimi else [])))[-3500:]
+        testo = (f"**What happened?**\n\n\n**What were you doing?**\n\n\n---\n"
+                 f"<details><summary>Info from the app</summary>\n\n```\n{dati}\n```\n</details>\n\n"
+                 f"If you can, also drag the file `{f.name}` (in your Downloads folder) into this box.")
         url = self.SEGNALA_URL + "?" + urllib.parse.urlencode({"title": titolo, "body": testo})
         return {"file": str(f), "nome": f.name, "url": url}
 

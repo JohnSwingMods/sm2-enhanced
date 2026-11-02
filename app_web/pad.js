@@ -9,14 +9,14 @@ const PN = { el: null, attivo: false, prima: [], prossimo: {}, rip: {}, bDa: 0 }
 // vero e quale hai toccato per ultimo. Il Gamepad del browser chiamava "Xbox 360 Controller" anche un Series X, a volte
 // "Unknown Gamepad" con i tasti in un altro ordine (la navigazione impazziva), e con due pad guardava solo il primo.
 // Se Python non risponde (o non vede pad) si ripiega sul browser.
-const PADPY = { stato: null, volo: false, quando: 0 };
+const PADPY = { stato: null, volo: false, quando: 0, va: false, fonte: "" };  // va = Python ha già risposto almeno una volta
 const PADPY_BIT = [0x1000, 0x2000, 0x4000, 0x8000, 0x100, 0x200, 0x10000, 0x20000, 0x20, 0x10, 0x40, 0x80, 1, 2, 4, 8];  // ordine "standard" del browser
 setInterval(() => {
   if (PADPY.volo || typeof api !== "function" || !window.pywebview || !api().pad_leggi) return;
   const serve = document.hasFocus() || window.PN_PROVA || (typeof S !== "undefined" && S.pagina === "controller" && !window.giocoAperto);
   if (!serve) return;
   PADPY.volo = true;
-  api().pad_leggi().then(r => { PADPY.stato = r; PADPY.quando = performance.now(); }).catch(() => {}).finally(() => { PADPY.volo = false; });
+  api().pad_leggi().then(r => { PADPY.stato = r; PADPY.quando = performance.now(); PADPY.va = true; }).catch(() => {}).finally(() => { PADPY.volo = false; });
 }, 33);
 function padDaPy(p) { return { id: p.id, nome: p.nome, fam: p.tipo, b: PADPY_BIT.map(m => !!(p.b & m)), axes: [p.sx, p.sy, p.dx, p.dy] }; }
 function padDaBrowser(g) {
@@ -26,20 +26,28 @@ function padDaBrowser(g) {
 function padLetti() {  // -> {tutti: [pad], attivo: pad, unione: {b, axes}} (attivo = l'ultimo toccato) o null senza pad
   let tutti = [], attivo = null;
   const st = PADPY.stato;
-  if (st && st.pad && st.pad.length && performance.now() - PADPY.quando < 600) {
+  const fresco = performance.now() - PADPY.quando < 600;
+  if (st && st.pad && st.pad.length && fresco) {
     tutti = st.pad.map(padDaPy);
     attivo = tutti.find(p => p.id === st.attivo) || tutti[0];
+  } else if (PADPY.va && !fresco && performance.now() - PADPY.quando < 5000) {
+    // Python risponde ma in ritardo (es. mentre conta le texture) o non vede pad: NON ripiego sul browser per un attimo.
+    // Il browser numera i tasti in un altro ordine (e a volte vede "premuto" un grilletto o la croce a riposo): ogni
+    // cambio di fonte sembrava una pressione -> modalità controller accesa e cursore nascosto finché caricava (John)
+    return null;  // (se invece Python risponde e non vede pad, sotto si usa il browser: fonte stabile)
   } else {
     tutti = [...(navigator.getGamepads ? navigator.getGamepads() : [])].filter(x => x && x.connected).map(padDaBrowser);
     attivo = tutti.find(p => p.mapping === "standard") || tutti[0] || null;
   }
   if (!tutti.length) return null;
+  const fonte = tutti[0].browser ? "browser" : "python";
+  const cambiata = PADPY.fonte !== fonte; PADPY.fonte = fonte;
   const b = [], axes = [0, 0, 0, 0];  // navigazione: va bene qualsiasi pad (OR dei tasti, levetta più spinta)
   for (const p of tutti) {
     p.b.forEach((on, i) => { b[i] = b[i] || on; });
     for (const k of [0, 2]) if (Math.abs(p.axes[k] || 0) + Math.abs(p.axes[k + 1] || 0) > Math.abs(axes[k]) + Math.abs(axes[k + 1])) { axes[k] = p.axes[k] || 0; axes[k + 1] = p.axes[k + 1] || 0; }
   }
-  return { tutti, attivo, unione: { b, axes } };
+  return { tutti, attivo, unione: { b, axes }, cambiata };
 }
 const PN_TASTI = { 0: "a", 1: "b", 2: "x", 3: "y", 4: "lb", 5: "rb", 6: "lt", 7: "rt", 8: "view", 9: "start", 10: "l3", 11: "r3", 12: "su", 13: "giu", 14: "sx", 15: "dx" };
 // finestrelle, dalla più in alto (z-index): prima i crediti mancavano e il riquadro andava sul launcher sotto (A due volte =
@@ -75,7 +83,7 @@ function pnMetti(e, scorri = true) {
   PN.el = e;
   if (!e) return;
   e.classList.add("pn-focus");
-  document.body.classList.add("pn-attivo");
+  if (PN.attivo) document.body.classList.add("pn-attivo");  // cursore nascosto solo se stai davvero usando il pad
   if (scorri) e.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
 }
 function pnPrimo() {  // dove partire: il pulsante principale della pagina (GIOCA, Installa...) o il primo in alto a sinistra
@@ -203,6 +211,7 @@ function pnGiro() {
   }
   const ax = g.axes[0] || 0, ay = g.axes[1] || 0;
   b[12] = b[12] || ay < -0.6; b[13] = b[13] || ay > 0.6; b[14] = b[14] || ax < -0.6; b[15] = b[15] || ax > 0.6;  // levetta = croce
+  if (letti.cambiata) { PN.prima = b; return; }  // pad letto da un'altra parte: i tasti tenuti non sono pressioni nuove
   for (const [i, k] of Object.entries(PN_TASTI)) {
     if (b[i] && !PN.prima[i]) {
       PN.attivo = true; PN.rip[i] = 0; PN.prossimo[i] = ora + 360;
@@ -217,7 +226,7 @@ function pnGiro() {
   PN.prima = b;
 }
 document.addEventListener("mousemove", () => {
-  if (!PN.attivo) return;
+  if (!PN.attivo && !document.body.classList.contains("pn-attivo")) return;
   PN.attivo = false; document.body.classList.remove("pn-attivo");
   if (PN.el) PN.el.classList.remove("pn-focus");
 });

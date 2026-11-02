@@ -677,7 +677,7 @@ kbd { font-size: 10px; color: var(--muto); border: 1px solid var(--bordo); borde
 .gi-solo b { display: block; font-size: 13px; } .gi-solo small { color: var(--muto); font-size: 11.5px; }
 .gi-avviso { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 12px; background: #0c0f18cc; border: 1px solid var(--bordo); color: #c3cadb; font-size: 12.5px; width: 100%; max-width: 520px; }
 .gi-avviso { flex-wrap: wrap; } .gi-avviso span { flex: 1 1 220px; }
-.gi-avviso.giallo { border-color: #ffb93855; } .gi-avviso span:empty { display: none; }
+.gi-avviso.giallo { border-color: #ffb93855; } .gi-avviso.rosso { border-color: #e3202d99; color: #ffd6d9; } .gi-avviso span:empty { display: none; }
 .gi-avviso.upd { border-color: #3d7bff66; } .gi-avviso .gi-upd-x { padding: 4px; color: var(--muto); } .gi-avviso .gi-upd-x svg { width: 14px; height: 14px; }
 .gi-avviso button { display: flex; align-items: center; gap: 8px; white-space: nowrap; padding: 7px 14px; } .gi-avviso svg { width: 17px; height: 17px; }
 .gi-exe { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--muto); min-width: 0; }
@@ -785,6 +785,11 @@ kbd { font-size: 10px; color: var(--muto); border: 1px solid var(--bordo); borde
 .com-testa { display: flex; align-items: center; justify-content: space-between; } .com-testa h3 { margin: 0; font-family: var(--titoli); font-size: 22px; }
 .com-legenda { margin: 6px 0 14px; color: #c3cadb; font-size: 12.5px; }
 #com-lista { display: flex; flex-direction: column; gap: 8px; }
+#com-tastiera { margin-top: 10px; padding: 12px 14px; border-radius: 14px; background: #0c0f18aa; border: 1px solid var(--bordo); }
+#com-tastiera > b { display: block; font-size: 13.5px; } #com-tastiera > small { display: block; color: var(--muto); font-size: 12px; margin: 2px 0 8px; }
+.com-kb { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 6px 10px; font-size: 12px; color: #c3cadb; }
+.com-kb span { display: flex; align-items: center; gap: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.com-kb kbd { min-width: 22px; padding: 2px 6px; border-radius: 6px; background: #1b2132; border: 1px solid #39425c; font: 600 11px/1.3 inherit; text-align: center; }
 .com-riga { display: grid; grid-template-columns: 210px 1fr; align-items: center; gap: 16px; padding: 11px 14px; border-radius: 14px; background: var(--carta); border: 1px solid var(--bordo); }
 .com-riga b { display: block; font-size: 14px; } .com-riga small { display: block; margin-top: 2px; color: var(--muto); font-size: 12px; }
 .com-tasti { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; } .com-tasti i { font-style: normal; color: var(--muto); font-weight: 700; }

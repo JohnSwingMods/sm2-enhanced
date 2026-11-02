@@ -1687,6 +1687,8 @@ function disegnaGioca() {
       : d.aperto && !Q.parte ? `<div class="gi-avviso giallo"><span>${t(d.gioco === "?" ? "gioca_altro" : "gioca_aperto")}</span></div>` : ""}
     ${!d.trucchi && !d.aperto ? `<div class="gi-avviso"><span>${t("gioca_trucchi_off")}</span></div>` : ""}
     ${giLavora() ? `<div class="gi-avviso gi-agg-lav">${giProg(Q.lav)}</div>`
+      : d.dolphin_vecchio && !d.aperto ? `<div class="gi-avviso rosso"><span>${t("gioca_vecchio", (d.versione_dolphin || "").replace("Dolphin ", ""))}</span>
+      ${d.dell_app ? `<button class="leggero" id="gi-agg">${t("gioca_agg_b")}</button>` : `<button class="leggero" data-link-esterno="https://dolphin-emu.org/download/">${t("ins_sito_dolphin")} ↗</button>`}</div>`
       : giAggiornamento(d) && !d.aperto ? `<div class="gi-avviso"><span>${t("gioca_agg", d.aggiornamento.versione, d.versione_dolphin.replace("Dolphin ", ""))}</span>
       ${d.dell_app ? `<button class="leggero" id="gi-agg">${t("gioca_agg_b")}</button>` : `<button class="leggero" data-link-esterno="https://dolphin-emu.org/download/">${t("ins_sito_dolphin")} ↗</button>`}</div>` : ""}
     ${appAggMostra(d.app_agg) && !sm2 ? `<div class="gi-avviso upd"><span>${t("upd_banner", d.app_agg.nuova.versione, d.app_agg.versione)}</span>
@@ -1733,7 +1735,7 @@ function disegnaGioca() {
   const up = $("#gi-upd"); if (up) up.onclick = () => appAggiorna(d.app_agg);
   const ux = $("#gi-upd-x"); if (ux) ux.onclick = async () => { await api().app_agg_nascondi(d.app_agg.nuova.versione); d.app_agg.nascosta = d.app_agg.nuova.versione; disegnaGioca(); };
   const ag = $("#gi-agg"); if (ag) ag.onclick = async () => {
-    if (!(await modale({ titolo: t("gioca_agg_tit", d.aggiornamento.versione), testo: t("gioca_agg_testo"),
+    if (!(await modale({ titolo: t("gioca_agg_tit", (d.aggiornamento || {}).versione || ""), testo: t("gioca_agg_testo"),
       bottoni: [[false, t("annulla")], [true, t("gioca_agg_b"), true]] }))) return;
     giInstallaDolphin(true);
   };
@@ -1980,6 +1982,8 @@ function giAggiornamento(d) {
   // versioni di Dolphin: "2609", correzioni rapide "2609a" (John: c'era la 2609a e l'app non diceva niente: voleva solo numeri)
   const a = d.aggiornamento, v = (d.versione_dolphin || "").replace("Dolphin ", "").trim();
   const n = x => { const m = /^(\d+)([a-z]?)$/i.exec(String(x || "").trim()); return m ? [+m[1], m[2].toLowerCase()] : null; };
+  // numeri vecchi ("5.0", "5.0-21088": prima del 2023) = più vecchi di qualsiasi "2306"... (prima: nessun avviso)
+  if (a && n(a.versione) && /^\d\.\d/.test(v)) return true;
   const nv = n(v), na = a && n(a.versione);
   return !!(nv && na && (na[0] > nv[0] || (na[0] === nv[0] && na[1] > nv[1])));
 }
@@ -2069,6 +2073,12 @@ async function giInstallaDolphin(aggiorna = false) {  // aggiorna: anche un Dolp
     if (st.finito) {
       clearInterval(tm);
       if (!st.errore) { Q.lav = null; toast(t("gu_dolphin_ok", st.versione || ""), "", "", 4000); await caricaGioca(true); return; }
+      if (st.errore === "dolphin_rete") {  // rete lenta o bloccata: si scarica a mano dal sito (segnalazione GitHub n. 2)
+        Q.lav = null; if (S.pagina === "gioca") disegnaGioca();
+        if (await modale({ titolo: t("errore"), testo: t("dolphin_rete"), bottoni: [[false, t("chiudi")], [true, "dolphin-emu.org ↗", true]] }))
+          api().apri_link("https://dolphin-emu.org/download/");
+        return;
+      }
       toast(t("errore"), errTesto(st.errore), "errore", 8000);
     }
     if (S.pagina === "gioca") disegnaGioca();
@@ -2673,7 +2683,14 @@ function txModoVisto(v) {  // cosa è acceso davvero: "tutte", "nuove" o null (s
   return v.file.every(f => (txEff(f) === v.id) === !reF.has(f)) ? "nuove" : null;
 }
 const txPasso = 150;  // texture mostrate alla volta nella galleria (RE ne ha più di 4000)
-async function caricaTexture() {
+// un caricamento alla volta: cliccando di nuovo Texture mentre carica ne partivano due insieme (doppio lavoro e barra
+// sballata, "6645 / 5697"): chi arriva dopo aspetta quello in corso
+let txInCorso = null;
+function caricaTexture() {
+  if (!txInCorso) txInCorso = caricaTexture1().finally(() => { txInCorso = null; });
+  return txInCorso;
+}
+async function caricaTexture1() {
   let tmBarra = null;
   if (!T.dati) {
     $("#tx-lista").innerHTML = `<div class="tx-carica"><div class="rotella"></div><span>${t("tx_analizzo")}</span>
@@ -3389,6 +3406,16 @@ async function apriComandi() {  // i comandi dei codici in gioco, con i tasti di
     ...(amazing && moderna ? [[[["←"]], "com_spalla_sx", "com_spalla_sub"], [[["→"]], "com_spalla_dx", "com_spalla_sub"]] : []), [[e("hud") && [e("hud")], ["←", "→"]].filter(Boolean), "com_hud_toggle", "com_hud_toggle_sub"],
     [[["Z", "←"]], "com_hud_off"], [[["Z", "→"]], "com_hud_on"]];
   $("#com-rag").classList.toggle("nascosto", !(Q.dati && Q.dati.rag_alt));  // ragnatele dell'alternativo: solo con l'app aperta
+  // tastiera insieme al controller (app_controller.TASTIERA): gli stessi comandi, tasto per tasto come sul pad
+  const kb = !(Q.dati && Q.dati.tastiera === false);
+  $("#com-tastiera").classList.toggle("nascosto", !kb);
+  if (kb) {
+    const v = [["W A S D", t("com_kb_muovi")], ["↑ ↓ ← →", t("com_kb_camera")], [t("com_kb_spazio"), "A"], ["J", "X"], ["K", "B"], ["L", "Y"],
+      ["I", "RB"], ["Q", "LT"], ["E", "RT"], [t("com_kb_invio"), "Start"], ["F", "L3"], ["R", "R3"], ["M", "Select"], ["H", "LB"],
+      ["1 2 3 4", t("com_kb_croce")], ["P", t("mz_menu")]];
+    $("#com-tastiera").innerHTML = `<b>${t("com_kb_tit")}</b><small>${t("com_kb_sub")}</small><div class="com-kb">${v.map(([a, b]) =>
+      `<span><kbd>${a}</kbd>${b}</span>`).join("")}</div>`;
+  }
   $("#com-lista").innerHTML = righe.map(([g, tit, sub]) => `<div class="com-riga"><div class="com-tasti">${tasti(g)}</div>
     <div><b>${t(tit)}${tit === "com_menu" ? soloApp() : ""}</b>${sub ? `<small>${t(sub)}</small>` : ""}</div></div>`).join("");
   $("#comandi").classList.remove("nascosto");
@@ -3458,7 +3485,7 @@ async function caricaImpGioco() {  // interruttori di avvio: gli stessi del laun
   const r = await api().impostazioni_gioco();
   if (!r || r.errore) return;
   const chiavi = { osd: "notifiche_dolphin", intero: "gioca_intero", solo: "gioca_solo", bordi: "schermo_senza_bordi", tasti: "tasti_auto" };
-  const voci = ["osd", "fps", "intero", "bordi", "solo", "sopra", "tasti"];
+  const voci = ["osd", "fps", "intero", "bordi", "solo", "sopra", "tasti", "tastiera"];
   for (const k of voci) {
     const c = $("#imp-" + k);
     c.checked = !!r[k];
@@ -3467,6 +3494,7 @@ async function caricaImpGioco() {  // interruttori di avvio: gli stessi del laun
         const x = await api().gioca_fps(c.checked);
         if (!x || x.errore) { c.checked = !c.checked; toast(t("errore"), x ? t(x.errore) : "", "errore"); return; }
       } else if (k === "sopra") await api().cam_sopra(c.checked);  // vale subito anche sul gioco aperto
+      else if (k === "tastiera") { await api().controller_tastiera(c.checked); X.dati = null; }  // profilo del pad aggiornato subito
       else await api().imposta(chiavi[k], c.checked);
       G.dati = null;  // Grafica e launcher rileggono i valori nuovi
       if (Q.dati) Q.dati[k] = c.checked;

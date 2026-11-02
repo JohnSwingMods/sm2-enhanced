@@ -45,6 +45,19 @@ TASTO_MAPPA = "DInput/0/Keyboard Mouse:F14"
 # mappa di tutta la città (mappa_citta.py, menu in gioco > Viaggio).
 TASTO_APRI_MAPPA = "DInput/0/Keyboard Mouse:F15"
 NASCOSTI = {"Buttons/Start": (TASTO_PAUSA, TASTO_APRI_MAPPA), "Buttons/X": (TASTO_MAPPA,), "Buttons/Z": (TASTO_APRI_MAPPA,)}
+# TASTIERA insieme al controller (richiesta su YouTube): gli stessi comandi anche dalla tastiera, aggiunti a ogni riga del
+# profilo con il percorso intero del dispositivo (funzionano qualunque sia il controller del profilo, anche senza).
+# Nascosti nella pagina Controller come i tasti dell'app. Con Options/Always Connected: senza, se il pad e' spento Dolphin
+# ignora anche la tastiera.
+TASTIERA_DEV = "DInput/0/Keyboard Mouse:"
+TASTIERA = {"Buttons/A": "SPACE", "Buttons/B": "J", "Buttons/X": "K", "Buttons/Y": "L", "Buttons/Z": "I",
+            "Buttons/Start": "RETURN", "Triggers/L": "Q", "Triggers/R": "E", "Triggers/L-Analog": "Q", "Triggers/R-Analog": "E",
+            "D-Pad/Up": "1", "D-Pad/Down": "2", "D-Pad/Left": "3", "D-Pad/Right": "4",
+            "Main Stick/Up": "W", "Main Stick/Down": "S", "Main Stick/Left": "A", "Main Stick/Right": "D",
+            "C-Stick/Up": "UP", "C-Stick/Down": "DOWN", "C-Stick/Left": "LEFT", "C-Stick/Right": "RIGHT"}
+# comandi della mod dalla tastiera (come gli extra del pad: premono piu' tasti del GameCube insieme)
+TASTIERA_EXTRA = {"costume": "F", "camera": "R", "mappa": "M", "hud": "H"}
+TASTIERA_MENU = "P"  # menu in gioco dell'app (lo legge l'app col gioco in primo piano, non e' un tasto del GameCube)
 DELL_APP = {"Buttons/X": (TASTO_MAPPA,), "Buttons/Z": (TASTO_APRI_MAPPA,), "Buttons/Start": (TASTO_APRI_MAPPA,)}  # quelli che mette
 
 
@@ -121,6 +134,9 @@ def analizza(righe):
     for k, tasto in NASCOSTI.items():  # i tasti della tastiera dell'app non sono una scelta di chi gioca: via prima di guardare
         if k in d:
             d[k] = _senza(d[k], tasto)
+    for k in list(d):  # e nemmeno quelli della tastiera insieme al controller (TASTIERA)
+        if k in TASTIERA or k in TASTI_GC:
+            d[k] = " | ".join(x.strip() for x in d[k].split("|") if x.strip() and TASTIERA_DEV not in x)
     dev = d.get("Device", "")
     avanzato = any(re.search(r"[&!()@^:]", d.get(k, "")) for k in TASTI_GC)  # espressioni fatte a mano in Dolphin
     base, resto = {}, {}
@@ -192,7 +208,7 @@ def inversione(righe):
     """Camera (levetta destra = C-Stick) invertita? {"y": bool, "x": bool}: invertita = il segno della levetta destra è
     opposto a quello della sinistra nella stessa direzione (vale per XInput `Y+`, SDL e Android `Axis 1-`). None = non si
     capisce (espressioni fatte a mano)."""
-    d = dict(righe)
+    d = {k: " | ".join(x for x in v.split("|") if x.strip() and TASTIERA_DEV not in x) for k, v in righe}  # (tastiera: non conta)
     out = {}
     for asse, (a, _b, rif) in INVERTI.items():
         c, s = _segno(d.get(a)), _segno(d.get(rif))
@@ -383,8 +399,9 @@ def verdetto(profilo, pad, cache=None):
     return "altro", pad[0]
 
 
-def assicura(dolphin, gid):
-    """Prima di giocare: il profilo dei tasti c'è e l'INI della versione lo usa (anche giocando senza mod/codici)."""
+def assicura(dolphin, gid, tastiera=True):
+    """Prima di giocare: il profilo dei tasti c'è e l'INI della versione lo usa (anche giocando senza mod/codici).
+    tastiera = anche i tasti della tastiera insieme al controller (TASTIERA)."""
     f = file_profilo(dolphin)
     if not f.is_file():
         f.parent.mkdir(parents=True, exist_ok=True)
@@ -392,6 +409,7 @@ def assicura(dolphin, gid):
         shutil.copyfile(predefinito(), f)
     togli_tasto_pausa(f)
     metti_tasto_mappa(f)
+    metti_tastiera(f, tastiera)
     if not gid:
         return
     ini = Path(dolphin) / "GameSettings" / f"{gid}.ini"
@@ -408,6 +426,39 @@ def togli_tasto_pausa(f):
         return False
     pulito = lambda v: " | ".join(x.strip() for x in v.split("|") if x.strip() and x.strip().strip("`").strip() != TASTO_PAUSA)
     scrivi(f, [(k, pulito(v)) if k == "Buttons/Start" else (k, v) for k, v in righe])
+    return True
+
+
+def _tastiera_righe():
+    """{riga del profilo: [tasti della tastiera]} = comandi base + extra della mod (che premono piu' tasti GC)."""
+    out = {k: [v] for k, v in TASTIERA.items()}
+    for cosa, tasto in TASTIERA_EXTRA.items():
+        for k in EXTRA[cosa]:
+            out.setdefault(k, []).append(tasto)
+    return out
+
+
+def metti_tastiera(f, si=True):
+    """Aggiunge (si) o toglie i tasti della tastiera a tutte le righe del profilo, senza toccare il resto. True = cambiato."""
+    righe = leggi(f)
+    vuole = _tastiera_righe() if si else {}
+    dell_app = {t for ts in DELL_APP.values() for t in ts} | {TASTO_PAUSA}  # F13/F14/F15 dell'app: non sono la tastiera di chi gioca
+    via = lambda v: [x.strip() for x in v.split("|") if x.strip() and (TASTIERA_DEV not in x or x.strip().strip("`") in dell_app)]
+    nuove, fatti = [], set()
+    for k, v in righe:
+        if k == "Options/Always Connected":
+            continue  # la rimetto io sotto (solo con la tastiera)
+        termini = via(v) + [f"`{TASTIERA_DEV}{x}`" for x in vuole.get(k, [])]
+        if k in vuole:
+            fatti.add(k)
+        nuove.append((k, " | ".join(termini)))
+    nuove += [(k, " | ".join(f"`{TASTIERA_DEV}{x}`" for x in xs)) for k, xs in vuole.items() if k not in fatti]
+    if si:
+        nuove.append(("Options/Always Connected", "True"))
+    nuove = [(k, v) for k, v in nuove if v]
+    if nuove == [(k, v) for k, v in righe if v]:
+        return False
+    scrivi(f, nuove)
     return True
 
 

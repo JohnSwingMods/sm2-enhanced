@@ -18,7 +18,7 @@ from pathlib import Path
 import psutil
 from PIL import Image
 
-VERSIONE_APP = "1.2.1"
+VERSIONE_APP = "1.2.2"
 # PROVA DA ZERO (--da-zero): l'app vive in una cartella tutta sua e non vede il Dolphin, la libreria, gli zip e le
 # impostazioni veri, come su un PC dove non c'è niente. Serve a provare l'esperienza di chi parte da zero.
 DA_ZERO = "--da-zero" in sys.argv
@@ -458,9 +458,85 @@ def trova_pack(conf=None):
     return None
 
 
+_LOAD = {}  # Dolphin.ini -> (data, LoadPath)
+
+
+def cartella_textures(dolphin):
+    """La cartella Textures che Dolphin legge davvero: di base <cartella utente>/Load/Textures, ma in Dolphin
+    (Configurazione > Percorsi > Percorso Load) la cartella Load si può spostare: Dolphin.ini [General] LoadPath.
+    Senza guardarla l'app metteva le texture dove Dolphin non legge ("tutto installato ma niente texture")."""
+    D = Path(dolphin)
+    ini = D / "Config" / "Dolphin.ini"
+    try:
+        st = ini.stat().st_mtime_ns
+    except OSError:
+        st = None
+    k = str(ini)
+    if k not in _LOAD or _LOAD[k][0] != st:  # (senza Dolphin.ini: st None, ma la voce va scritta lo stesso)
+        lp = (leggi_ini(ini).get("General", {}).get("LoadPath", "") if st else "").strip().strip('"')
+        _LOAD[k] = (st, lp)
+    lp = _LOAD[k][1]
+    if lp:
+        p = Path(os.path.expandvars(lp))
+        return (p if p.is_absolute() else D / p) / "Textures"
+    return D / "Load" / "Textures"
+
+
+def cartella_utente_exe(exe):
+    """La cartella utente che usera' davvero questo Dolphin.exe, con le regole di Dolphin su Windows
+    (UICommon::SetUserDirectory): portable.txt accanto all'exe, o registro LocalUserConfig = 1 -> <exe>/User; registro
+    UserConfigPath; Documenti/Dolphin Emulator se c'e'; AppData/Roaming/Dolphin Emulator; se no <exe>/User.
+    Se e' diversa da quella dove l'app scrive, il launcher avvia Dolphin con -u (se no codici e texture "installati"
+    finivano in una cartella che quel Dolphin non legge)."""
+    if not exe:
+        return None
+    cart = Path(exe).parent
+    if (cart / "portable.txt").exists():
+        return cart / "User"
+    if DA_ZERO:
+        return None  # prova da zero: niente registro ne' cartelle vere
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Dolphin Emulator") as k:
+            def val(nome):
+                try:
+                    return winreg.QueryValueEx(k, nome)[0]
+                except OSError:
+                    return None
+            if str(val("LocalUserConfig") or "") == "1":
+                return cart / "User"
+            if val("UserConfigPath"):
+                return Path(val("UserConfigPath"))
+    except OSError:
+        pass
+    doc = cartella_documenti() / "Dolphin Emulator"
+    if doc.is_dir():
+        return doc
+    if os.environ.get("APPDATA"):
+        return Path(os.environ["APPDATA"]) / "Dolphin Emulator"
+    return cart / "User"
+
+
+def stessa_cartella(a, b):
+    try:
+        return os.path.normcase(os.path.realpath(corto(a))) == os.path.normcase(os.path.realpath(corto(b)))
+    except (OSError, ValueError, TypeError):
+        return False
+
+
+def dolphin_vecchio(versione):
+    """True se questo Dolphin e' troppo vecchio per le texture DDS (Dolphin 5.0 del 2016 e prima): le texture HD della mod
+    sono DDS e li' non si caricano, senza nessun errore. "Dolphin 5.0-12345" (versioni di sviluppo dopo il 2017) va."""
+    v = (versione or "").replace("Dolphin", "").strip()
+    m = re.match(r"^(\d+)\.(\d+)(?:-(\d+))?", v)
+    if not m or len(m.group(1)) >= 4:  # "2609", "2412a": versioni nuove
+        return False
+    mag = int(m.group(1))
+    return mag < 5 or (mag == 5 and not m.group(3))
+
+
 def cartelle_texture(dolphin):
     """Le cartelle Load/Textures/<ID> del gioco che esistono (almeno quella USA, creata se manca)."""
-    base = Path(dolphin) / "Load" / "Textures"
+    base = cartella_textures(dolphin)
     out = [base / i for i in ID_GIOCO if (base / i).is_dir()]
     if not out:
         out = [base / "GK2E52"]
@@ -469,7 +545,6 @@ def cartelle_texture(dolphin):
 
 def versioni_texture(dolphin):
     """Versioni del gioco che hanno le texture: cartelle Load/Textures/<ID> e file <ID>.txt dentro (collegamenti)."""
-    base = Path(dolphin) / "Load" / "Textures"
     out = []
     for cart in cartelle_texture(dolphin):
         if not cart.is_dir():
@@ -895,6 +970,8 @@ class Installazione:
         """base = cartella con la tuta di Spider-Man 2: RE: le texture che la skin non ha si prendono da lì
         (es. Vanilla Suit Colors HD cambia solo il corpo), invece di toglierle."""
         nomi = ALT_FILE if alternativa else SKIN_FILE
+        if base and tex(base, CORPO) and tex(base, CORPO).suffix.lower() == ".dds":  # libreria in DDS: costume nello stesso formato
+            png_in_dds([tex(cartella, n) for n in SKIN_FILE.values()])
         for chiave, dest in nomi.items():
             src = tex(cartella, SKIN_FILE[chiave]) or tex(base, SKIN_FILE[chiave])
             self.ops.append((src, dest))
@@ -940,10 +1017,10 @@ class Installazione:
                     if not src:
                         cancellati += 1
                         continue
-                elif dds.is_file() and not dest.is_file():  # un .dds non fatto dall'app (es. libreria in DDS)
+                elif dds.is_file():  # un .dds non fatto dall'app (es. libreria in DDS), anche se accanto c'è già il PNG
                     _backup(dds, BACKUP_DIR / quando / cart.name, dds.name)
                     dds.unlink()
-                    if not src:
+                    if not src and not dest.is_file():  # (c'era anche il PNG: lo toglie sotto)
                         cancellati += 1
                         continue
                 if dest.is_file():
@@ -1532,6 +1609,7 @@ VECCHI_DISEGNI = {
     "478ff465002f8d486ff82519194364aa": "ps5-white", "d3de9561a944d3d8bde5fbfd7fad0e9c": "xbox360-black",
     "52fd17e9ee2f837b25758ced47fc53b5": "xbox360-white", "09a1fa3667d354665ce4c306ed2304c0": "xboxone-black",
     "3492c2d0fa7612bb02fa8f5cbb0787c7": "xboxseries-black", "a8e0ff6e54cb4826fb019201be73a1b6": "xboxseries-white",
+    "f14fc15abb86cbde1a5c31b0b8fbb6dd": "xboxseries-white",  # dorsali tagliati dallo scontorno (2026-11-02)
 }
 
 
@@ -1771,7 +1849,7 @@ def peso_texture(dolphin, prot=frozenset()):
                 except OSError:
                     pass
         return tot, dopo
-    base = Path(dolphin) / "Load" / "Textures"
+    base = cartella_textures(dolphin)
     return max([dim(base / i) for i in ID_GIOCO if (base / i).is_dir()] or [(0, 0)])
 
 
@@ -2173,6 +2251,8 @@ def aggiungi_al_pack(pack, radice, tipo, nome, hud=()):
             except Exception:
                 _rimuovi(lungo(dh))
                 raise
+    if formato_libreria(pack) == "dds":  # come il resto della libreria (vedi png_in_dds)
+        png_in_dds([Path(r) / f for r, _, fs in os.walk(lungo(dest)) for f in fs if f.lower().endswith(".png")])
     return dest
 
 
@@ -2189,6 +2269,63 @@ def texconv():
     base = Path(getattr(sys, "_MEIPASS", Path(__file__).parent))
     p = base / "tools" / "texconv.exe"
     return p if p.is_file() else None
+
+
+def png_in_dds(files):
+    """Converte questi PNG in DDS BC7 accanto a loro (il PNG sparisce), come fa la libreria. Solo i lati multipli di 4.
+    Serve a tenere tutto nello stesso formato: un costume PNG al posto di uno DDS (o il contrario) a gioco aperto vuol dire
+    cancellare un file e crearne un altro, e Dolphin a volte non lo ricarica (restava il costume di prima, GitHub n. 3).
+    Ritorna quanti ne ha convertiti."""
+    import subprocess
+    import time
+    exe = texconv()
+    files = [Path(f) for f in files if f and Path(f).suffix.lower() == ".png" and Path(f).is_file()]
+    if not exe or not files:
+        return 0
+    ok = []
+    for f in files:
+        try:
+            w, h = _dimensioni_png(f)
+        except OSError:
+            continue
+        if w % 4 == 0 and h % 4 == 0:
+            ok.append(f)
+    if not ok:
+        return 0
+    d = CACHE / "_dds_tmp" / f"{os.getpid()}_{time.time_ns()}"
+    entra, esce = d / "in", d / "out"
+    fatti = 0
+    try:
+        entra.mkdir(parents=True, exist_ok=True)
+        esce.mkdir(exist_ok=True)
+        for j, f in enumerate(ok):  # nomi corti: texconv non regge i percorsi lunghi
+            shutil.copyfile(lungo(f), entra / f"{j}.png")
+        subprocess.run([str(exe), "-nologo", "-y", "-f", "BC7_UNORM", "-m", "0", *texconv_args(), "-o", corto(esce),
+                        *[corto(entra / f"{j}.png") for j in range(len(ok))]],
+                       capture_output=True, creationflags=0x08000000, env=ambiente_figli())
+        for j, f in enumerate(ok):
+            dds = esce / f"{j}.dds"
+            if dds.is_file():
+                shutil.copyfile(dds, lungo(f.with_suffix(".dds")))
+                _togli_file(lungo(f))
+                fatti += 1
+    except OSError as e:
+        log_errore(f"png_in_dds: {e!r}")
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+    return fatti
+
+
+def formato_libreria(pack):
+    """"dds" o "png": come sono le texture della libreria (libreria.json, se no da RE)."""
+    try:
+        f = json.loads((Path(pack) / "libreria.json").read_text(encoding="utf-8")).get("formato")
+        if f:
+            return f
+    except (OSError, ValueError, TypeError):
+        pass
+    uff = cartella_ufficiale(pack) if pack else None
+    return "dds" if uff and tex(uff, CORPO) and tex(uff, CORPO).suffix.lower() == ".dds" else "png"
 
 
 def manifesto():
@@ -3021,7 +3158,7 @@ def trova_exe_dolphin(conf=None, dolphin=None):
 def mod_versioni(dolphin):
     """Per ogni versione: c'è l'INI del gioco? texture HD, Spider-Cam, 60 fps, niente blur, 60 Hz (PAL), codici accesi."""
     D = Path(dolphin)
-    tex = set(versioni_texture(D)) if (D / "Load" / "Textures").is_dir() else set()
+    tex = set(versioni_texture(D)) if cartella_textures(D).is_dir() else set()
     gfx = leggi_ini(D / "Config" / "GFX.ini").get("Settings", {}).get("HiresTextures", "False").lower() == "true"
     out = {}
     for g in ID_GIOCO:
@@ -3628,7 +3765,7 @@ class InstallaGioco:
         if tasti_gio.is_dir():
             _copia_texture(tasti_gio, L / "Layout Controller")
         # 1. cartella delle texture: quelle che ci sono già, altrimenti una sola + <ID>.txt per le altre versioni
-        base = D / "Load" / "Textures"
+        base = cartella_textures(D)
         esistenti = [g for g in self.versioni if (base / g).is_dir()]
         principale = esistenti[0] if esistenti else self.versioni[0]
         (base / principale).mkdir(parents=True, exist_ok=True)
@@ -3717,9 +3854,24 @@ MAC_BASE = {  # grafica dello zip per Mac: base Apple Silicon (M1-M4), Metal; si
     "res": 4, "formato": 1, "msaa": 1, "ssaa": False, "aniso": 2, "vsync": True, "backend": "Metal", "oc_on": True, "oc": 3.0,
     "shader": 2, "attendi": True, "hd": True, "cache": True, "fps": False, "tex": "dds", "jit": False,
 }
+LINUX_BASE = {  # grafica dello zip per Linux / Steam Deck (schermo 1280x800, Vulkan): fluida sul Deck, piu' alta si cambia in Dolphin
+    "res": 2, "formato": 1, "msaa": 1, "ssaa": False, "aniso": 2, "vsync": True, "backend": "Vulkan", "oc_on": False, "oc": 1.0,
+    "shader": 2, "attendi": True, "hd": True, "cache": True, "fps": False, "tex": "png", "jit": True,
+}
 PIATTAFORME = {  # id -> controller possibili (cartella in contenuti/Profiles)
     "pc": ["pc"], "pcarm": ["pc"], "mac": [], "android": ["android_retroid", "android_kishi"], "xbox": ["xbox"],
+    "linux": ["linux_deck"],
 }
+# Linux: Dolphin tiene le impostazioni (Dolphin.ini, GFX.ini, Profiles) in una cartella e i dati (GameSettings, Load, GC)
+# in un'altra: nativo ~/.config/dolphin-emu + ~/.local/share/dolphin-emu, Flatpak (Discover, EmuDeck)
+# ~/.var/app/org.DolphinEmu.dolphin-emu/config/dolphin-emu + .../data/dolphin-emu. Lo zip ha "config/" e "data/".
+
+
+def _nel_zip(piattaforma, rel):
+    """Percorso dentro lo zip: come la cartella utente di Dolphin, su Linux diviso in config/ e data/."""
+    if piattaforma != "linux":
+        return rel
+    return "config/" + rel[len("Config/"):] if rel.startswith("Config/") else "data/" + rel
 
 
 def _togli_attivi(ini, nomi):
@@ -3750,12 +3902,15 @@ class Esportazione:
     piattaforma, profilo del controller, salvataggio 100% (se chiesto) e un LEGGIMI corto."""
 
     def __init__(self, dolphin, dest_zip, piattaforma, controller, versioni, formato="dds", fps30=False,
-                 salvataggi=False, leggimi="", grafica=None, parti=("texture", "ini", "controller")):
+                 salvataggi=False, leggimi="", grafica=None, parti=("texture", "ini", "controller"), profilo_negli_ini=True):
         self.dolphin, self.dest = Path(dolphin), Path(dest_zip)
         self.piattaforma, self.controller, self.versioni = piattaforma, controller, list(versioni)
         self.formato, self.fps30, self.salvataggi, self.leggimi = formato, fps30, salvataggi, leggimi
         self.grafica = grafica or {}  # impostazioni grafiche da scrivere negli INI (es. preset Android)
         self.parti = set(parti)  # cosa mettere nello zip: texture / ini / controller (+ salvataggi a parte)
+        # False = il profilo va nello zip ma gli INI non lo impongono (zip Android della release: chi gioca col touch
+        # perderebbe i comandi a schermo; chi ha un pad carica "spiderman 2" a mano)
+        self.profilo_negli_ini = profilo_negli_ini
         self.fase, self.fatti, self.totale, self.finito, self.errore, self.annulla = "", 0, 0, False, None, False
 
     def stato(self):
@@ -3783,6 +3938,7 @@ class Esportazione:
         import zipfile
         D = self.dolphin
         cart = cartelle_texture(D)[0]
+        cart.mkdir(parents=True, exist_ok=True)  # (senza texture installate: zip con solo codici/controller/salvataggi)
         tmp = D / "Load" / "_spidey_export_tmp"
         _rimuovi(tmp)
         tmp.mkdir(parents=True)
@@ -3827,7 +3983,9 @@ class Esportazione:
             solo_app &= leggi_codici_ini(dst)["presenti"]
             if solo_app:
                 scrivi_codici_ini(dst, [], [(n, True) for n in solo_app])
-            valori = {("Controls", "PadType0"): "6", ("Controls", "PadProfile1"): "spiderman 2"} if self.controller else {}
+            valori = {("Controls", "PadType0"): "6", ("Controls", "PadProfile1"): "spiderman 2"} if self.controller and self.profilo_negli_ini else {}
+            if not self.profilo_negli_ini:
+                _togli_chiavi(dst, {("Controls", "PadType0"), ("Controls", "PadProfile1")})
             for k, v in self.grafica.items():
                 if k in GRAFICA:
                     valori[(GRAFICA[k][0], GRAFICA[k][1])] = _a_testo(GRAFICA[k][2], v)
@@ -3849,27 +4007,27 @@ class Esportazione:
             for f in files:
                 if self.annulla:
                     return
-                z.write(f, f"Load/Textures/{principale}/{Path(f).name}",
+                z.write(f, _nel_zip(self.piattaforma, f"Load/Textures/{principale}/{Path(f).name}"),
                         compress_type=zipfile.ZIP_STORED if f.lower().endswith(".png") else zipfile.ZIP_DEFLATED)
                 self.fatti += 1
             for g in self.versioni if files else []:
                 if g != principale:
-                    z.writestr(f"Load/Textures/{principale}/{g}.txt", "")
+                    z.writestr(_nel_zip(self.piattaforma, f"Load/Textures/{principale}/{g}.txt"), "")
             for f in sorted(ini_dir.iterdir()) if "ini" in self.parti else []:
-                z.write(f, f"GameSettings/{f.name}")
+                z.write(f, _nel_zip(self.piattaforma, f"GameSettings/{f.name}"))
             if self.controller and "controller" in self.parti:
                 prof = contenuti() / "Profiles" / self.controller / "spiderman 2.ini"
                 mio = D / "Config" / "Profiles" / "GCPad" / "spiderman 2.ini"
                 if self.controller == "pc" and mio.is_file():  # sul PC: il profilo che usi adesso
                     prof = mio
                 if prof.is_file():
-                    z.write(prof, "Config/Profiles/GCPad/spiderman 2.ini")
+                    z.write(prof, _nel_zip(self.piattaforma, "Config/Profiles/GCPad/spiderman 2.ini"))
             if self.salvataggi:
                 pack_s = Path(getattr(sys, "_MEIPASS", Path(__file__).parent)) / "pack_salvataggi"
                 for g in self.versioni:
                     regione = "USA" if g == "GK2E52" else "EUR"
                     for f in (pack_s / CARTELLA_SALVATAGGI[g]).glob("*.gci"):
-                        z.write(f, f"GC/{regione}/Card A/{f.name}")
+                        z.write(f, _nel_zip(self.piattaforma, f"GC/{regione}/Card A/{f.name}"))
             if self.leggimi:
                 z.writestr("LEGGIMI - README.txt", self.leggimi.replace("\n", "\r\n"))
         _rimuovi(tmp)
@@ -4385,14 +4543,28 @@ def dolphin_aggiornabile(exe):
 _AGGIORNABILE = {}
 
 
-def ultima_dolphin():
-    """{"versione": "2609", "url": <7z Windows>} dell'ultima release di Dolphin, None se il sito non risponde."""
+DOLPHIN_RISERVA = {"versione": "2609a", "url": "https://dl.dolphin-emu.org/releases/2609a/dolphin-2609a-x64.7z"}  # se l'API non risponde
+ULTIMA_DOLPHIN_ERRORE = [None]  # perche' l'ultima richiesta e' fallita (per il registro e la segnalazione)
+
+
+class ErroreRete(RuntimeError):
+    """Dolphin non si scarica: rete lenta, firewall, antivirus che blocca le connessioni sicure (segnalazione GitHub n. 2)."""
+
+
+def ultima_dolphin(tentativi=1):
+    """{"versione": "2609", "url": <7z Windows>} dell'ultima release di Dolphin, None se il sito non risponde.
+    tentativi > 1 = ci riprova con attese piu' lunghe (installazione: su una rete lenta 8 secondi non bastavano)."""
     import platform
     import urllib.request
-    try:
-        with urllib.request.urlopen(urllib.request.Request(DOLPHIN_API, headers=UA), timeout=8) as r:
-            d = json.loads(r.read().decode("utf-8"))
-    except (OSError, ValueError):
+    d = None
+    for n in range(tentativi):
+        try:
+            with urllib.request.urlopen(urllib.request.Request(DOLPHIN_API, headers=UA), timeout=(8, 20, 30)[min(n, 2)]) as r:
+                d = json.loads(r.read().decode("utf-8"))
+            break
+        except (OSError, ValueError) as e:
+            ULTIMA_DOLPHIN_ERRORE[0] = f"{type(e).__name__}: {e}"
+    if d is None:
         return None
     arm = platform.machine().upper() in ("ARM64", "AARCH64")
     url = next((a["url"] for a in d.get("artifacts", []) if a.get("system") == ("Windows arm64" if arm else "Windows x64")), None)
@@ -4662,7 +4834,7 @@ class InstallaDolphin:
         except Exception as e:  # noqa: BLE001
             import traceback
             log_errore(traceback.format_exc())
-            self.errore = f"{type(e).__name__}: {e}"
+            self.errore = "dolphin_rete" if isinstance(e, ErroreRete) else f"{type(e).__name__}: {e}"
         finally:
             self.finito = True
 
@@ -4670,15 +4842,23 @@ class InstallaDolphin:
         import subprocess
         import urllib.request
         self.fase = "cerco"
-        info = ultima_dolphin()
+        info = ultima_dolphin(tentativi=3)
         if not info:
-            raise RuntimeError("sito Dolphin non raggiungibile")
+            log_errore(f"API di Dolphin non raggiungibile ({ULTIMA_DOLPHIN_ERRORE[0]}): provo il download diretto")
+            import platform
+            if platform.machine().upper() in ("ARM64", "AARCH64"):
+                raise ErroreRete(f"sito Dolphin non raggiungibile: {ULTIMA_DOLPHIN_ERRORE[0]}")
+            info = DOLPHIN_RISERVA
         self.versione = info["versione"]
         base = cartella_dolphin_app()
         base.mkdir(parents=True, exist_ok=True)
         arch = base / Path(info["url"]).name
         self.fase = "scarico"
-        with urllib.request.urlopen(urllib.request.Request(info["url"], headers=UA), timeout=30) as r, open(arch, "wb") as out:
+        try:
+            r = urllib.request.urlopen(urllib.request.Request(info["url"], headers=UA), timeout=60)
+        except OSError as e:
+            raise ErroreRete(f"download di Dolphin non riuscito: {type(e).__name__}: {e}") from e
+        with r, open(arch, "wb") as out:
             self.totale = int(r.headers.get("Content-Length") or 0)
             while True:
                 if self.annulla:
