@@ -103,6 +103,11 @@ tc_comandato_ok:
     lbz r9, 0x5D6(r12)
     cmpwi r9, 0
     bne tc_annulla
+    ; tuffo naturale con la picchiata già agganciata da L3 (camera): la richiesta non deve far ripartire un tuffo
+    ; comandato a metà caduta (azzerava l'aggancio: la camera tornava normale)
+    lbz r9, 0x5D4(r12)
+    cmpwi r9, 2
+    beq tc_annulla
     lfs f0, 0x568(r12)
     lfs f1, 0(r29)
     fcmpu f0, f1

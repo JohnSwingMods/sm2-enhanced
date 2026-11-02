@@ -18,7 +18,7 @@ from pathlib import Path
 import psutil
 from PIL import Image
 
-VERSIONE_APP = "1.2"
+VERSIONE_APP = "1.2.1"
 # PROVA DA ZERO (--da-zero): l'app vive in una cartella tutta sua e non vede il Dolphin, la libreria, gli zip e le
 # impostazioni veri, come su un PC dove non c'è niente. Serve a provare l'esperienza di chi parte da zero.
 DA_ZERO = "--da-zero" in sys.argv

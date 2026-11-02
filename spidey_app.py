@@ -729,6 +729,13 @@ class Api:
                 esito = v.vai(dove[0], dove[2], dove[1], dopo_tasto=self._menu_sopra, terra=terra, occhio=occhio, prima=qui)
                 if esito == "ok" and getattr(v, "arrivo", None) and cosa == "punto":
                     altezza = round(v.arrivo[1])  # nel menu "Arrivato a 214 m": quanto era alto il palazzo
+                if esito == "ok" and getattr(v, "arrivo", None) and cosa == "posto" and p.get("y") is None:
+                    # posto salvato dalla mappa 3D (senza altezza: il segnalino stava a terra, sotto la punta dell'Empire
+                    # che si guardava, e con la prospettiva scivolava, John): ora so dov'è davvero -> posto esatto
+                    gx, gy, gz = v.arrivo
+                    p.update(x=round(gx, 2), y=round(gy + 0.97, 2), z=round(gz, 2))
+                    p.pop("occhio", None)
+                    core.scrivi_config(self._conf)
                 if esito not in ("acqua", "mappa"):
                     self._viaggio_prima = {"gid": gid, "x": qui[0], "y": qui[1], "z": qui[2]}
                     self._mappa_punto = None  # punto usato: la prossima volta si riparte dalla mappa
@@ -4341,8 +4348,9 @@ class Api:
         # hanno il tasto rapido (1-8) parto normale e lo carico io (F<n>) quando il gioco gira fluido.
         dopo = bool(slot) and slot in core.SLOT_TASTI
         stato = ["-s", str(core.file_stato(dolphin, gid, slot))] if slot and not dopo else []
-        reg = []
-        avvia_esterno([str(exe)] + (["-b"] if solo else []) + intero_arg + reg + stato + ["-e", str(disco)], cwd=str(exe.parent))
+        reg, kw = [], {}
+        avvia_esterno([str(exe)] + (["-b"] if solo else []) + intero_arg + reg + stato + ["-e", str(disco)], cwd=str(exe.parent),
+                      **kw)
         if dopo:
             threading.Thread(target=self._carica_quando_pronto, args=(gid, slot), daemon=True).start()
         return {"ok": True, "trucchi": trucchi, "dopo": dopo, "pad_auto": pad_auto, "tasti_auto": tasti_auto}

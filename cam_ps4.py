@@ -1143,8 +1143,8 @@ cm_ok:
     lfs f10, 0x158(r12)
     b tuffo_verso
 posa_vera:
-    ; tuffo NON fatto da L3 (buttato dal palazzo senza saltare, o caduta a testa in giù): anche qui L3 tenuto
-    ; TENUTA_PICCHIATA fotogrammi aggancia la picchiata (John: lasciando L3 la camera tornava normale)
+    ; tuffo NON fatto da L3 (buttato dal palazzo senza saltare, o caduta a testa in giù): una pressione di L3 aggancia
+    ; la picchiata fino alla ragnatela o a terra (John: lasciando L3 la camera tornava normale)
     lbz r9, 0x5D4(r12)
     cmpwi r9, 2
     bne pv_normale
@@ -1191,34 +1191,17 @@ pv_normale:
 posa_conta:
     cmpwi r10, 20
     blt tuffo_verso
+    ; qui L3 non fa partire nessun tuffo (Spidey si sta già tuffando): basta premerlo e la picchiata si AGGANCIA subito
+    ; (John: prima serviva tenerlo 0,4 s DOPO che la camera era partita, e lasciandolo appena la vedeva tornava via)
     lis r11, {pad >> 16:#x}
     ori r11, r11, {pad & 0xFFFF:#x}
     lhz r11, 0(r11)
     andi. r11, r11, 0x14
     cmpwi r11, 4
-    bne pv_lasciato
-    lbz r9, 0x5D4(r12)
-    lis r11, {(vi + 0x8000) >> 16:#x}
-    lwz r11, {vi & 0xFFFF:#x}(r11)
-    cmpwi r9, 1
-    beq pv_conta
-    stw r11, 0x5F8(r12)
-    li r9, 1
-    stb r9, 0x5D4(r12)
-    b pv_si
-pv_conta:
-    lwz r9, 0x5F8(r12)
-    subf r9, r9, r11
-    cmpwi r9, {TENUTA_PICCHIATA}
-    blt pv_si
+    bne tuffo_verso
     li r9, 2
     stb r9, 0x5D4(r12)
-pv_si:
     lfs f10, 0x158(r12)
-    b tuffo_verso
-pv_lasciato:
-    li r9, 0
-    stb r9, 0x5D4(r12)
     b tuffo_verso
 posa_no:
     li r10, 0
